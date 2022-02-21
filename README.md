@@ -6,9 +6,13 @@ ray.py is a cross-platform bindings for the great graphics library [raylib](http
 
 Check out [examples](https://github.com/faresahmedb/ray.py/blob/main/examples) converted from [raylib/examples](https://github.com/raysan5/raylib/blob/master/examples)
 
----
-
 <br>
+<br>
+<br>
+<br>
+<br>
+
+---
 
 ## Getting Started
 
