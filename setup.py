@@ -47,7 +47,7 @@ def get_option(name, default="", args=None):
     return default
 
 
-RAYLIB_VERSION = get_option("raylib-version", "4.0.0")
+RAYLIB_VERSION = get_option("raylib-version", "5.0")
 
 mimetypes.add_type("text/markdown", ".md")
 mimetypes.add_type("text/x-rst", ".rst")
@@ -185,13 +185,6 @@ class DownloadDependencies(Command):
             self.announce(
                 "latest '%s' release is '%s'" % (self.repo_fullname, self.raylib_version), Log.INFO
             )
-        elif not self.no_semver:
-            rl_ver_dot_count = self.raylib_version.count(".")
-            if not rl_ver_dot_count:  # =='X'
-                self.raylib_version += ".0.0"
-            elif rl_ver_dot_count == 1:  # =='X.0'
-                self.raylib_version += ".0"
-            # invalid formats should's be handled
 
         if os.path.isdir(RAYLIB_DIR):
             self.announce("output directory '%s' already exist" % (RAYLIB_DIR), Log.INFO)

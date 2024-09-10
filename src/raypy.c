@@ -1,9 +1,9 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#include <descrobject.h> // Py_T_FLOAT
+#include <stddef.h> // offsetof
 #include <raylib.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <structmember.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,9 +25,11 @@ extern "C" {
         return NULL;                                                                          \
     }
 
+/* Vector2 */
+
 typedef struct {
-    PyObject_HEAD double x;
-    double y;
+    PyObject_HEAD float x;
+    float y;
 } RayPy_Vector2Object;
 
 static void
@@ -35,76 +37,6 @@ RayPy_Vector2_dealloc(RayPy_Vector2Object *self)
 {
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
-
-static PyObject *
-RayPy_Vector2_repr(RayPy_Vector2Object *self)
-{
-    char buf[64];
-    PyOS_snprintf(buf, sizeof(buf), "<Vector2(%g, %g)>", self->x, self->y);
-    return PyUnicode_FromString(buf);
-}
-
-static PyObject *
-RayPy_Vector2_richcompare(RayPy_Vector2Object *self, RayPy_Vector2Object *other, int op)
-{
-    switch (op) {
-    case Py_EQ:
-        return PyBool_FromLong(self->x == other->x && self->y == other->y);
-    case Py_NE:
-        return PyBool_FromLong(self->x != other->x && self->y != other->y);
-    default:
-        Py_RETURN_NOTIMPLEMENTED;
-    }
-}
-
-static PyObject *
-RayPy_Vector2_get_x(RayPy_Vector2Object *self, void *Py_UNUSED(closure))
-{
-    return PyLong_FromLong(self->x);
-}
-
-static int
-RayPy_Vector2_set_x(RayPy_Vector2Object *self, PyObject *value, void *Py_UNUSED(closure))
-{
-    double x = PyFloat_AsDouble(value);
-    if (PyErr_Occurred()) {
-        if (PyErr_ExceptionMatches(PyExc_TypeError)) {
-            PyErr_Clear();
-            PyErr_Format(PyExc_TypeError, "Vector2.x must be float, got %s",
-                         Py_TYPE(value)->tp_name);
-        }
-        return -1;
-    }
-    self->x = x;
-    return 0;
-}
-
-static PyObject *
-RayPy_Vector2_get_y(RayPy_Vector2Object *self, void *Py_UNUSED(closure))
-{
-    return PyLong_FromLong(self->y);
-}
-
-static int
-RayPy_Vector2_set_y(RayPy_Vector2Object *self, PyObject *value, void *Py_UNUSED(closure))
-{
-    double y = PyFloat_AsDouble(value);
-    if (PyErr_Occurred()) {
-        if (PyErr_ExceptionMatches(PyExc_TypeError)) {
-            PyErr_Clear();
-            PyErr_Format(PyExc_TypeError, "Vector2.y must be float, got %s",
-                         Py_TYPE(value)->tp_name);
-        }
-        return -1;
-    }
-    self->y = y;
-    return 0;
-}
-
-static PyGetSetDef RayPy_Vector2_getset[] = {
-    {"x", (getter)RayPy_Vector2_get_x, (setter)RayPy_Vector2_set_x, NULL, NULL},
-    {"y", (getter)RayPy_Vector2_get_y, (setter)RayPy_Vector2_set_y, NULL, NULL},
-    {NULL}};
 
 static RayPy_Vector2Object *
 RayPy_Vector2_new(PyTypeObject *type, PyObject *Py_UNUSED(args), PyObject *Py_UNUSED(kwds))
@@ -120,48 +52,64 @@ RayPy_Vector2_new(PyTypeObject *type, PyObject *Py_UNUSED(args), PyObject *Py_UN
 static int
 RayPy_Vector2_init(RayPy_Vector2Object *self, PyObject *args, PyObject *Py_UNUSED(kwds))
 {
-    PyObject *xobj = NULL, *yobj = NULL;
-    if (!PyArg_ParseTuple(args, "|OO", &xobj, &yobj)) {
+    if (!PyArg_ParseTuple(args, "|ff", &self->x, &self->y)) {
         return -1;
-    }
-    if (xobj) {
-        double x = PyFloat_AsDouble(xobj);
-        if (PyErr_Occurred()) {
-            return -1;
-        }
-        self->x = x;
-        if (!yobj) {
-            self->y = x;
-        }
-    }
-    if (yobj) {
-        double y = PyFloat_AsDouble(yobj);
-        if (PyErr_Occurred()) {
-            return -1;
-        }
-        self->y = y;
     }
     return 0;
 }
 
-static PyTypeObject RayPy_Vector2_Type = {
-    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "raypy.Vector2",
-    .tp_basicsize = sizeof(RayPy_Vector2Object),
-    .tp_itemsize = 0,
-    .tp_dealloc = (destructor)RayPy_Vector2_dealloc,
-    .tp_repr = (reprfunc)RayPy_Vector2_repr,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-    .tp_doc = "Vector2 type",
-    .tp_richcompare = (richcmpfunc)RayPy_Vector2_richcompare,
-    .tp_getset = RayPy_Vector2_getset,
-    .tp_init = (initproc)RayPy_Vector2_init,
-    .tp_new = (newfunc)RayPy_Vector2_new,
+static PyMemberDef RayPy_Vector2_members[] = {
+    {"x", Py_T_FLOAT, offsetof(RayPy_Vector2Object, x), 0, "Vector x component"},
+    {"y", Py_T_FLOAT, offsetof(RayPy_Vector2Object, y), 0, "Vector y component"},
+    {NULL}
 };
 
+static PyObject *
+RayPy_Vector2_repr(RayPy_Vector2Object *self)
+{
+    PyObject *x = PyFloat_FromDouble(self->x);
+    PyObject *y = PyFloat_FromDouble(self->y);
+    return PyUnicode_FromFormat("Vector2(%R, %R)", x, y);
+}
+
+static PyObject *
+RayPy_Vector2_richcompare(RayPy_Vector2Object *self, RayPy_Vector2Object *other, int op)
+{
+    switch (op) {
+    case Py_EQ:
+        return PyBool_FromLong(
+            self->x == other->x
+            && self->y == other->y);
+    case Py_NE:
+        return PyBool_FromLong(
+            self->x != other->x
+            || self->y != other->y);
+    default:
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+}
+
+static PyTypeObject RayPy_Vector2_Type = {
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "raypy.Vector2",
+    .tp_doc = PyDoc_STR("Vector2, 2 components"),
+    .tp_basicsize = sizeof(RayPy_Vector2Object),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_new = (newfunc)RayPy_Vector2_new,
+    .tp_init = (initproc)RayPy_Vector2_init,
+    .tp_repr = (reprfunc)RayPy_Vector2_repr,
+    .tp_dealloc = (destructor)RayPy_Vector2_dealloc,
+    .tp_members = RayPy_Vector2_members,
+    .tp_richcompare = (richcmpfunc)RayPy_Vector2_richcompare,
+};
+
+/* Vector3 */
+
 typedef struct {
-    PyObject_HEAD double x;
-    double y;
-    double z;
+    PyObject_HEAD float x;
+    float y;
+    float z;
 } RayPy_Vector3Object;
 
 static void
@@ -169,101 +117,6 @@ RayPy_Vector3_dealloc(RayPy_Vector3Object *self)
 {
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
-
-static PyObject *
-RayPy_Vector3_repr(RayPy_Vector3Object *self)
-{
-    char buf[91];
-    PyOS_snprintf(buf, sizeof(buf), "<Vector3(%g, %g, %g)>", self->x, self->y, self->z);
-    return PyUnicode_FromString(buf);
-}
-
-static PyObject *
-RayPy_Vector3_richcompare(RayPy_Vector3Object *self, RayPy_Vector3Object *other, int op)
-{
-    switch (op) {
-    case Py_EQ:
-        return PyBool_FromLong(self->x == other->x && self->y == other->y &&
-                               self->z == other->z);
-    case Py_NE:
-        return PyBool_FromLong(self->x != other->x && self->y != other->y &&
-                               self->z != other->z);
-    default:
-        Py_RETURN_NOTIMPLEMENTED;
-    }
-}
-
-static PyObject *
-RayPy_Vector3_get_x(RayPy_Vector3Object *self, void *Py_UNUSED(closure))
-{
-    return PyLong_FromLong(self->x);
-}
-
-static int
-RayPy_Vector3_set_x(RayPy_Vector3Object *self, PyObject *value, void *Py_UNUSED(closure))
-{
-    double x = PyFloat_AsDouble(value);
-    if (PyErr_Occurred()) {
-        if (PyErr_ExceptionMatches(PyExc_TypeError)) {
-            PyErr_Clear();
-            PyErr_Format(PyExc_TypeError, "Vector3.x must be float, got %s",
-                         Py_TYPE(value)->tp_name);
-        }
-        return -1;
-    }
-    self->x = x;
-    return 0;
-}
-
-static PyObject *
-RayPy_Vector3_get_y(RayPy_Vector3Object *self, void *Py_UNUSED(closure))
-{
-    return PyLong_FromLong(self->y);
-}
-
-static int
-RayPy_Vector3_set_y(RayPy_Vector3Object *self, PyObject *value, void *Py_UNUSED(closure))
-{
-    double y = PyFloat_AsDouble(value);
-    if (PyErr_Occurred()) {
-        if (PyErr_ExceptionMatches(PyExc_TypeError)) {
-            PyErr_Clear();
-            PyErr_Format(PyExc_TypeError, "Vector3.y must be float, got %s",
-                         Py_TYPE(value)->tp_name);
-        }
-        return -1;
-    }
-    self->y = y;
-    return 0;
-}
-
-static PyObject *
-RayPy_Vector3_get_z(RayPy_Vector3Object *self, void *Py_UNUSED(closure))
-{
-    return PyLong_FromLong(self->z);
-}
-
-static int
-RayPy_Vector3_set_z(RayPy_Vector3Object *self, PyObject *value, void *Py_UNUSED(closure))
-{
-    double z = PyFloat_AsDouble(value);
-    if (PyErr_Occurred()) {
-        if (PyErr_ExceptionMatches(PyExc_TypeError)) {
-            PyErr_Clear();
-            PyErr_Format(PyExc_TypeError, "Vector3.z must be float, got %s",
-                         Py_TYPE(value)->tp_name);
-        }
-        return -1;
-    }
-    self->z = z;
-    return 0;
-}
-
-static PyGetSetDef RayPy_Vector3_getset[] = {
-    {"x", (getter)RayPy_Vector3_get_x, (setter)RayPy_Vector3_set_x, NULL, NULL},
-    {"y", (getter)RayPy_Vector3_get_y, (setter)RayPy_Vector3_set_y, NULL, NULL},
-    {"z", (getter)RayPy_Vector3_get_z, (setter)RayPy_Vector3_set_z, NULL, NULL},
-    {NULL}};
 
 static RayPy_Vector3Object *
 RayPy_Vector3_new(PyTypeObject *type, PyObject *Py_UNUSED(args), PyObject *Py_UNUSED(kwds))
@@ -280,57 +133,69 @@ RayPy_Vector3_new(PyTypeObject *type, PyObject *Py_UNUSED(args), PyObject *Py_UN
 static int
 RayPy_Vector3_init(RayPy_Vector3Object *self, PyObject *args, PyObject *Py_UNUSED(kwds))
 {
-    PyObject *xobj = NULL, *yobj = NULL, *zobj = NULL;
-    if (!PyArg_ParseTuple(args, "|OOO", &xobj, &yobj, &zobj)) {
+    if (!PyArg_ParseTuple(args, "|fff", &self->x, &self->y, &self->z)) {
         return -1;
-    }
-    if (xobj) {
-        double x = PyFloat_AsDouble(xobj);
-        if (PyErr_Occurred()) {
-            return -1;
-        }
-        self->x = x;
-        if (!yobj) {
-            self->y = x;
-            self->z = x;
-        }
-    }
-    if (yobj) {
-        double y = PyFloat_AsDouble(yobj);
-        if (PyErr_Occurred()) {
-            return -1;
-        }
-        self->y = y;
-    }
-    if (zobj) {
-        double z = PyFloat_AsDouble(zobj);
-        if (PyErr_Occurred()) {
-            return -1;
-        }
-        self->z = z;
     }
     return 0;
 }
 
-static PyTypeObject RayPy_Vector3_Type = {
-    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "raypy.Vector3",
-    .tp_basicsize = sizeof(RayPy_Vector3Object),
-    .tp_itemsize = 0,
-    .tp_dealloc = (destructor)RayPy_Vector3_dealloc,
-    .tp_repr = (reprfunc)RayPy_Vector3_repr,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-    .tp_doc = "Vector3 type",
-    .tp_richcompare = (richcmpfunc)RayPy_Vector3_richcompare,
-    .tp_getset = RayPy_Vector3_getset,
-    .tp_init = (initproc)RayPy_Vector3_init,
-    .tp_new = (newfunc)RayPy_Vector3_new,
+static PyMemberDef RayPy_Vector3_members[] = {
+    {"x", Py_T_FLOAT, offsetof(RayPy_Vector3Object, x), 0, "Vector x component"},
+    {"y", Py_T_FLOAT, offsetof(RayPy_Vector3Object, y), 0, "Vector y component"},
+    {"z", Py_T_FLOAT, offsetof(RayPy_Vector3Object, z), 0, "Vector z component"},
+    {NULL}
 };
 
+static PyObject *
+RayPy_Vector3_repr(RayPy_Vector3Object *self)
+{
+    PyObject *x = PyFloat_FromDouble(self->x);
+    PyObject *y = PyFloat_FromDouble(self->y);
+    PyObject *z = PyFloat_FromDouble(self->z);
+    return PyUnicode_FromFormat("Vector3(%R, %R, %R)", x, y, z);
+}
+
+static PyObject *
+RayPy_Vector3_richcompare(RayPy_Vector3Object *self, RayPy_Vector3Object *other, int op)
+{
+    switch (op) {
+    case Py_EQ:
+        return PyBool_FromLong(
+            self->x == other->x
+            && self->y == other->y
+            && self->z == other->z);
+    case Py_NE:
+        return PyBool_FromLong(
+            self->x != other->x
+            || self->y != other->y
+            || self->z != other->z);
+    default:
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+}
+
+static PyTypeObject RayPy_Vector3_Type = {
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "raypy.Vector3",
+    .tp_doc = PyDoc_STR("Vector3, 3 components"),
+    .tp_basicsize = sizeof(RayPy_Vector3Object),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_new = (newfunc)RayPy_Vector3_new,
+    .tp_init = (initproc)RayPy_Vector3_init,
+    .tp_repr = (reprfunc)RayPy_Vector3_repr,
+    .tp_dealloc = (destructor)RayPy_Vector3_dealloc,
+    .tp_members = RayPy_Vector3_members,
+    .tp_richcompare = (richcmpfunc)RayPy_Vector3_richcompare,
+};
+
+/* Vector4 */
+
 typedef struct {
-    PyObject_HEAD double x;
-    double y;
-    double z;
-    double w;
+    PyObject_HEAD float x;
+    float y;
+    float z;
+    float w;
 } RayPy_Vector4Object;
 
 static void
@@ -338,125 +203,6 @@ RayPy_Vector4_dealloc(RayPy_Vector4Object *self)
 {
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
-
-static PyObject *
-RayPy_Vector4_repr(RayPy_Vector4Object *self)
-{
-    char buf[118];
-    PyOS_snprintf(buf, sizeof(buf), "<Vector4(%g, %g, %g, %g)>", self->x, self->y, self->z,
-                  self->w);
-    return PyUnicode_FromString(buf);
-}
-
-static PyObject *
-RayPy_Vector4_richcompare(RayPy_Vector4Object *self, RayPy_Vector4Object *other, int op)
-{
-    switch (op) {
-    case Py_EQ:
-        return PyBool_FromLong(self->x == other->x && self->y == other->y &&
-                               self->z == other->z && self->w == other->w);
-    case Py_NE:
-        return PyBool_FromLong(self->x != other->x && self->y != other->y &&
-                               self->z != other->z && self->w != other->w);
-    default:
-        Py_RETURN_NOTIMPLEMENTED;
-    }
-}
-
-static PyObject *
-RayPy_Vector4_get_x(RayPy_Vector4Object *self, void *Py_UNUSED(closure))
-{
-    return PyLong_FromLong(self->x);
-}
-
-static int
-RayPy_Vector4_set_x(RayPy_Vector4Object *self, PyObject *value, void *Py_UNUSED(closure))
-{
-    double x = PyFloat_AsDouble(value);
-    if (PyErr_Occurred()) {
-        if (PyErr_ExceptionMatches(PyExc_TypeError)) {
-            PyErr_Clear();
-            PyErr_Format(PyExc_TypeError, "Vector4.x must be float, got %s",
-                         Py_TYPE(value)->tp_name);
-        }
-        return -1;
-    }
-    self->x = x;
-    return 0;
-}
-
-static PyObject *
-RayPy_Vector4_get_y(RayPy_Vector4Object *self, void *Py_UNUSED(closure))
-{
-    return PyLong_FromLong(self->y);
-}
-
-static int
-RayPy_Vector4_set_y(RayPy_Vector4Object *self, PyObject *value, void *Py_UNUSED(closure))
-{
-    double y = PyFloat_AsDouble(value);
-    if (PyErr_Occurred()) {
-        if (PyErr_ExceptionMatches(PyExc_TypeError)) {
-            PyErr_Clear();
-            PyErr_Format(PyExc_TypeError, "Vector4.y must be float, got %s",
-                         Py_TYPE(value)->tp_name);
-        }
-        return -1;
-    }
-    self->y = y;
-    return 0;
-}
-
-static PyObject *
-RayPy_Vector4_get_z(RayPy_Vector4Object *self, void *Py_UNUSED(closure))
-{
-    return PyLong_FromLong(self->z);
-}
-
-static int
-RayPy_Vector4_set_z(RayPy_Vector4Object *self, PyObject *value, void *Py_UNUSED(closure))
-{
-    double z = PyFloat_AsDouble(value);
-    if (PyErr_Occurred()) {
-        if (PyErr_ExceptionMatches(PyExc_TypeError)) {
-            PyErr_Clear();
-            PyErr_Format(PyExc_TypeError, "Vector4.z must be float, got %s",
-                         Py_TYPE(value)->tp_name);
-        }
-        return -1;
-    }
-    self->z = z;
-    return 0;
-}
-
-static PyObject *
-RayPy_Vector4_get_w(RayPy_Vector4Object *self, void *Py_UNUSED(closure))
-{
-    return PyLong_FromLong(self->w);
-}
-
-static int
-RayPy_Vector4_set_w(RayPy_Vector4Object *self, PyObject *value, void *Py_UNUSED(closure))
-{
-    double w = PyFloat_AsDouble(value);
-    if (PyErr_Occurred()) {
-        if (PyErr_ExceptionMatches(PyExc_TypeError)) {
-            PyErr_Clear();
-            PyErr_Format(PyExc_TypeError, "Vector4.w must be float, got %s",
-                         Py_TYPE(value)->tp_name);
-        }
-        return -1;
-    }
-    self->w = w;
-    return 0;
-}
-
-static PyGetSetDef RayPy_Vector4_getset[] = {
-    {"x", (getter)RayPy_Vector4_get_x, (setter)RayPy_Vector4_set_x, NULL, NULL},
-    {"y", (getter)RayPy_Vector4_get_y, (setter)RayPy_Vector4_set_y, NULL, NULL},
-    {"z", (getter)RayPy_Vector4_get_z, (setter)RayPy_Vector4_set_z, NULL, NULL},
-    {"w", (getter)RayPy_Vector4_get_w, (setter)RayPy_Vector4_set_w, NULL, NULL},
-    {NULL}};
 
 static RayPy_Vector4Object *
 RayPy_Vector4_new(PyTypeObject *type, PyObject *Py_UNUSED(args), PyObject *Py_UNUSED(kwds))
@@ -474,65 +220,73 @@ RayPy_Vector4_new(PyTypeObject *type, PyObject *Py_UNUSED(args), PyObject *Py_UN
 static int
 RayPy_Vector4_init(RayPy_Vector4Object *self, PyObject *args, PyObject *Py_UNUSED(kwds))
 {
-    PyObject *xobj = NULL, *yobj = NULL, *zobj = NULL, *wobj = NULL;
-    if (!PyArg_ParseTuple(args, "|OOOO", &xobj, &yobj, &zobj, &wobj)) {
+    if (!PyArg_ParseTuple(args, "|ffff", &self->x, &self->y, &self->z, &self->w)) {
         return -1;
-    }
-    if (xobj) {
-        double x = PyFloat_AsDouble(xobj);
-        if (PyErr_Occurred()) {
-            return -1;
-        }
-        self->x = x;
-        if (!yobj) {
-            self->y = x;
-            self->z = x;
-            self->w = x;
-        }
-    }
-    if (yobj) {
-        double y = PyFloat_AsDouble(yobj);
-        if (PyErr_Occurred()) {
-            return -1;
-        }
-        self->y = y;
-    }
-    if (zobj) {
-        double z = PyFloat_AsDouble(zobj);
-        if (PyErr_Occurred()) {
-            return -1;
-        }
-        self->z = z;
-    }
-    if (wobj) {
-        double w = PyFloat_AsDouble(wobj);
-        if (PyErr_Occurred()) {
-            return -1;
-        }
-        self->w = w;
     }
     return 0;
 }
 
-static PyTypeObject RayPy_Vector4_Type = {
-    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "raypy.Vector4",
-    .tp_basicsize = sizeof(RayPy_Vector4Object),
-    .tp_itemsize = 0,
-    .tp_dealloc = (destructor)RayPy_Vector4_dealloc,
-    .tp_repr = (reprfunc)RayPy_Vector4_repr,
-    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-    .tp_doc = "Vector4 type",
-    .tp_richcompare = (richcmpfunc)RayPy_Vector4_richcompare,
-    .tp_getset = RayPy_Vector4_getset,
-    .tp_init = (initproc)RayPy_Vector4_init,
-    .tp_new = (newfunc)RayPy_Vector4_new,
+static PyMemberDef RayPy_Vector4_members[] = {
+    {"x", Py_T_FLOAT, offsetof(RayPy_Vector4Object, x), 0, "Vector x component"},
+    {"y", Py_T_FLOAT, offsetof(RayPy_Vector4Object, y), 0, "Vector y component"},
+    {"z", Py_T_FLOAT, offsetof(RayPy_Vector4Object, z), 0, "Vector z component"},
+    {"w", Py_T_FLOAT, offsetof(RayPy_Vector4Object, w), 0, "Vector w component"},
+    {NULL}
 };
 
+static PyObject *
+RayPy_Vector4_repr(RayPy_Vector4Object *self)
+{
+    PyObject *x = PyFloat_FromDouble(self->x);
+    PyObject *y = PyFloat_FromDouble(self->y);
+    PyObject *z = PyFloat_FromDouble(self->z);
+    PyObject *w = PyFloat_FromDouble(self->w);
+    return PyUnicode_FromFormat("Vector4(%R, %R, %R, %R)", x, y, z, w);
+}
+
+static PyObject *
+RayPy_Vector4_richcompare(RayPy_Vector4Object *self, RayPy_Vector4Object *other, int op)
+{
+    switch (op) {
+    case Py_EQ:
+        return PyBool_FromLong(
+            self->x == other->x
+            && self->y == other->y
+            && self->z == other->z
+            && self->w == other->w);
+    case Py_NE:
+        return PyBool_FromLong(
+            self->x != other->x
+            || self->y != other->y
+            || self->z != other->z
+            || self->w != other->w);
+    default:
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+}
+
+static PyTypeObject RayPy_Vector4_Type = {
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "raypy.Vector4",
+    .tp_doc = PyDoc_STR("Vector4, 4 components"),
+    .tp_basicsize = sizeof(RayPy_Vector4Object),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_new = (newfunc)RayPy_Vector4_new,
+    .tp_init = (initproc)RayPy_Vector4_init,
+    .tp_repr = (reprfunc)RayPy_Vector4_repr,
+    .tp_dealloc = (destructor)RayPy_Vector4_dealloc,
+    .tp_members = RayPy_Vector4_members,
+    .tp_richcompare = (richcmpfunc)RayPy_Vector4_richcompare,
+};
+
+/* Color */
+
 typedef struct {
-    PyObject_HEAD uint8_t r;
-    uint8_t g;
-    uint8_t b;
-    uint8_t a;
+    PyObject_HEAD unsigned char r;
+    unsigned char g;
+    unsigned char b;
+    unsigned char a;
 } RayPy_ColorObject;
 
 static void
@@ -540,144 +294,6 @@ RayPy_Color_dealloc(RayPy_ColorObject *self)
 {
     Py_TYPE(self)->tp_free((PyObject *)self);
 }
-
-static PyObject *
-RayPy_Color_repr(RayPy_ColorObject *self)
-{
-    char buf[28]; // CONST[15] + (4 * 3) + NULL_CHAR[1]
-    snprintf(buf, sizeof(buf), "<Color(%d, %d, %d, %d)>", self->r, self->g, self->b, self->a);
-    return PyUnicode_FromString(buf);
-}
-
-static PyObject *
-RayPy_Color_richcompare(RayPy_ColorObject *self, RayPy_ColorObject *other, int op)
-{
-    switch (op) {
-    case Py_EQ:
-        return PyBool_FromLong(self->r == other->r && self->g == other->g &&
-                               self->b == other->b && self->a == other->a);
-    case Py_NE:
-        return PyBool_FromLong(self->r != other->r && self->g != other->g &&
-                               self->b != other->b && self->a != other->a);
-    default:
-        Py_RETURN_NOTIMPLEMENTED;
-    }
-}
-
-static PyObject *
-RayPy_Color_get_r(RayPy_ColorObject *self, void *Py_UNUSED(closure))
-{
-    return PyLong_FromLong(self->r);
-}
-
-static int
-RayPy_Color_set_r(RayPy_ColorObject *self, PyObject *value, void *Py_UNUSED(closure))
-{
-    long r = PyLong_AsLong(value);
-    if (PyErr_Occurred()) {
-        if (PyErr_ExceptionMatches(PyExc_TypeError)) {
-            PyErr_Clear();
-            PyErr_Format(PyExc_TypeError, "Color.r must be int, got %s",
-                         Py_TYPE(value)->tp_name);
-        }
-        return -1;
-    }
-    if (r < 0 || r > 255) {
-        PyErr_SetString(PyExc_ValueError,
-                        "color values must be greater than 0 and lower than 255");
-        return -1;
-    }
-    self->r = (uint8_t)r;
-    return 0;
-}
-
-static PyObject *
-RayPy_Color_get_g(RayPy_ColorObject *self, void *Py_UNUSED(closure))
-{
-    return PyLong_FromLong(self->g);
-}
-
-static int
-RayPy_Color_set_g(RayPy_ColorObject *self, PyObject *value, void *Py_UNUSED(closure))
-{
-    long g = PyLong_AsLong(value);
-    if (PyErr_Occurred()) {
-        if (PyErr_ExceptionMatches(PyExc_TypeError)) {
-            PyErr_Clear();
-            PyErr_Format(PyExc_TypeError, "Color.g must be int, got %s",
-                         Py_TYPE(value)->tp_name);
-        }
-        return -1;
-    }
-    if (g < 0 || g > 255) {
-        PyErr_SetString(PyExc_ValueError,
-                        "color values must be greater than 0 and lower than 255");
-        return -1;
-    }
-    self->g = (uint8_t)g;
-    return 0;
-}
-
-static PyObject *
-RayPy_Color_get_b(RayPy_ColorObject *self, void *Py_UNUSED(closure))
-{
-    return PyLong_FromLong(self->b);
-}
-
-static int
-RayPy_Color_set_b(RayPy_ColorObject *self, PyObject *value, void *Py_UNUSED(closure))
-{
-    long b = PyLong_AsLong(value);
-    if (PyErr_Occurred()) {
-        if (PyErr_ExceptionMatches(PyExc_TypeError)) {
-            PyErr_Clear();
-            PyErr_Format(PyExc_TypeError, "Color.b must be int, got %s",
-                         Py_TYPE(value)->tp_name);
-        }
-        return -1;
-    }
-    if (b < 0 || b > 255) {
-        PyErr_SetString(PyExc_ValueError,
-                        "color values must be greater than 0 and lower than 255");
-        return -1;
-    }
-    self->b = (uint8_t)b;
-    return 0;
-}
-
-static PyObject *
-RayPy_Color_get_a(RayPy_ColorObject *self, void *Py_UNUSED(closure))
-{
-    return PyLong_FromLong(self->a);
-}
-
-static int
-RayPy_Color_set_a(RayPy_ColorObject *self, PyObject *value, void *Py_UNUSED(closure))
-{
-    long a = PyLong_AsLong(value);
-    if (PyErr_Occurred()) {
-        if (PyErr_ExceptionMatches(PyExc_TypeError)) {
-            PyErr_Clear();
-            PyErr_Format(PyExc_TypeError, "Color.a must be int, got %s",
-                         Py_TYPE(value)->tp_name);
-        }
-        return -1;
-    }
-    if (a < 0 || a > 255) {
-        PyErr_SetString(PyExc_ValueError,
-                        "color values must be greater than 0 and lower than 255");
-        return -1;
-    }
-    self->a = (uint8_t)a;
-    return 0;
-}
-
-static PyGetSetDef RayPy_Color_getset[] = {
-    {"r", (getter)RayPy_Color_get_r, (setter)RayPy_Color_set_r, NULL, NULL},
-    {"g", (getter)RayPy_Color_get_g, (setter)RayPy_Color_set_g, NULL, NULL},
-    {"b", (getter)RayPy_Color_get_b, (setter)RayPy_Color_set_b, NULL, NULL},
-    {"a", (getter)RayPy_Color_get_a, (setter)RayPy_Color_set_a, NULL, NULL},
-    {NULL}};
 
 static RayPy_ColorObject *
 RayPy_Color_new(PyTypeObject *type, PyObject *Py_UNUSED(args), PyObject *Py_UNUSED(kwds))
@@ -693,46 +309,77 @@ RayPy_Color_new(PyTypeObject *type, PyObject *Py_UNUSED(args), PyObject *Py_UNUS
 }
 
 static int
-RayPy_Color_init(RayPy_ColorObject *obj, PyObject *args, PyObject *Py_UNUSED(kwds))
+RayPy_Color_init(RayPy_ColorObject *self, PyObject *args, PyObject *Py_UNUSED(kwds))
 {
-    unsigned char r, g, b, a = 255;
-    if (!PyArg_ParseTuple(args, "bbb|b", &r, &g, &b, &a)) {
-        if (PyErr_ExceptionMatches(PyExc_OverflowError)) {
-            PyErr_Clear();
-            PyErr_SetString(PyExc_ValueError,
-                            "color values must be greater than 0 and lower than 255");
-        }
+    if (!PyArg_ParseTuple(args, "bbb|b", &self->r, &self->g, &self->b, &self->a)) {
         return -1;
     }
-    obj->r = r;
-    obj->g = g;
-    obj->b = b;
-    obj->a = a;
     return 0;
 }
 
+static PyMemberDef RayPy_Color_members[] = {
+    {"r", Py_T_UBYTE, offsetof(RayPy_ColorObject, r), 0, "Color red value"},
+    {"g", Py_T_UBYTE, offsetof(RayPy_ColorObject, g), 0, "Color green value"},
+    {"b", Py_T_UBYTE, offsetof(RayPy_ColorObject, b), 0, "Color blue value"},
+    {"a", Py_T_UBYTE, offsetof(RayPy_ColorObject, a), 0, "Color alpha value"},
+    {NULL}
+};
+
+static PyObject *
+RayPy_Color_repr(RayPy_ColorObject *self)
+{
+    PyObject *r = PyLong_FromUnsignedLong(self->r);
+    PyObject *g = PyLong_FromUnsignedLong(self->g);
+    PyObject *b = PyLong_FromUnsignedLong(self->b);
+    PyObject *a = PyLong_FromUnsignedLong(self->a);
+    return PyUnicode_FromFormat("Color(%R, %R, %R, %R)", r, g, b, a);
+}
+
+static PyObject *
+RayPy_Color_richcompare(RayPy_ColorObject *self, RayPy_ColorObject *other, int op)
+{
+    switch (op) {
+    case Py_EQ:
+        return PyBool_FromLong(
+            self->r == other->r
+            && self->g == other->g
+            && self->b == other->b
+            && self->a == other->a);
+    case Py_NE:
+        return PyBool_FromLong(
+            self->r != other->r
+            || self->g != other->g
+            || self->b != other->b
+            || self->a != other->a);
+    default:
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+}
+
 static PyTypeObject RayPy_Color_Type = {
-    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "raypy.Color",
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "raypy.Color",
+    .tp_doc = PyDoc_STR("Color, 4 components, R8G8B8A8 (32bit)"),
     .tp_basicsize = sizeof(RayPy_ColorObject),
     .tp_itemsize = 0,
-    .tp_dealloc = (destructor)RayPy_Color_dealloc,
-    .tp_repr = (reprfunc)RayPy_Color_repr,
     .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-    .tp_doc = "Color type",
-    .tp_richcompare = (richcmpfunc)RayPy_Color_richcompare,
-    .tp_getset = RayPy_Color_getset,
-    .tp_init = (initproc)RayPy_Color_init,
     .tp_new = (newfunc)RayPy_Color_new,
+    .tp_init = (initproc)RayPy_Color_init,
+    .tp_repr = (reprfunc)RayPy_Color_repr,
+    .tp_dealloc = (destructor)RayPy_Color_dealloc,
+    .tp_members = RayPy_Color_members,
+    .tp_richcompare = (richcmpfunc)RayPy_Color_richcompare,
 };
 
 Color
 RayPy_Color_AsColor(RayPy_ColorObject *obj)
 {
-    Color color;
-    if (obj == NULL)
+    Color color = {0};
+    if (obj == NULL) {
         PyErr_BadInternalCall();
+    }
     if (!PyObject_TypeCheck(obj, &RayPy_Color_Type)) {
-        PyErr_SetString(PyExc_TypeError, "a raypy.Color type is required");
+        PyErr_Format(PyExc_TypeError, "must be raypy.Color, not %s", Py_TYPE(obj)->tp_name);
         return color;
     }
     color.r = obj->r;
@@ -741,6 +388,200 @@ RayPy_Color_AsColor(RayPy_ColorObject *obj)
     color.a = obj->a;
     return color;
 }
+
+/* Rectangle */
+
+typedef struct {
+    PyObject_HEAD float x;
+    float y;
+    float width;
+    float height;
+} RayPy_RectangleObject;
+
+static void
+RayPy_Rectangle_dealloc(RayPy_RectangleObject *self)
+{
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static RayPy_RectangleObject *
+RayPy_Rectangle_new(PyTypeObject *type, PyObject *Py_UNUSED(args), PyObject *Py_UNUSED(kwds))
+{
+    RayPy_RectangleObject *self = (RayPy_RectangleObject *)type->tp_alloc(type, 0);
+    if (self == NULL)
+        return NULL;
+    self->x = 0.0;
+    self->y = 0.0;
+    self->width = 0.0;
+    self->height = 0.0;
+    return self;
+}
+
+static int
+RayPy_Rectangle_init(RayPy_RectangleObject *self, PyObject *args, PyObject *Py_UNUSED(kwds))
+{
+    if (!PyArg_ParseTuple(args, "|ffff", &self->x, &self->y, &self->width, &self->height)) {
+        return -1;
+    }
+    return 0;
+}
+
+static PyMemberDef RayPy_Rectangle_members[] = {
+    {"x", Py_T_FLOAT, offsetof(RayPy_RectangleObject, x), 0, "Rectangle top-left corner position x"},
+    {"y", Py_T_FLOAT, offsetof(RayPy_RectangleObject, y), 0, "Rectangle top-left corner position y"},
+    {"width", Py_T_FLOAT, offsetof(RayPy_RectangleObject, width), 0, "Rectangle width"},
+    {"height", Py_T_FLOAT, offsetof(RayPy_RectangleObject, height), 0, "Rectangle height"},
+    {NULL}
+};
+
+static PyObject *
+RayPy_Rectangle_repr(RayPy_RectangleObject *self)
+{
+    PyObject *x = PyFloat_FromDouble(self->x);
+    PyObject *y = PyFloat_FromDouble(self->y);
+    PyObject *width = PyFloat_FromDouble(self->width);
+    PyObject *height = PyFloat_FromDouble(self->height);
+    return PyUnicode_FromFormat("Rectangle(%R, %R, %R, %R)", x, y, width, height);
+}
+
+static PyObject *
+RayPy_Rectangle_richcompare(RayPy_RectangleObject *self, RayPy_RectangleObject *other, int op)
+{
+    switch (op) {
+    case Py_EQ:
+        return PyBool_FromLong(
+            self->x == other->x
+            && self->y == other->y
+            && self->width == other->width
+            && self->height == other->height);
+    case Py_NE:
+        return PyBool_FromLong(
+            self->x != other->x
+            || self->y != other->y
+            || self->width != other->width
+            || self->height != other->height);
+    default:
+        Py_RETURN_NOTIMPLEMENTED;
+    }
+}
+
+static PyTypeObject RayPy_Rectangle_Type = {
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "raypy.Rectangle",
+    .tp_doc = PyDoc_STR("Rectangle, 4 components"),
+    .tp_basicsize = sizeof(RayPy_RectangleObject),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_new = (newfunc)RayPy_Rectangle_new,
+    .tp_init = (initproc)RayPy_Rectangle_init,
+    .tp_repr = (reprfunc)RayPy_Rectangle_repr,
+    .tp_dealloc = (destructor)RayPy_Rectangle_dealloc,
+    .tp_members = RayPy_Rectangle_members,
+    .tp_richcompare = (richcmpfunc)RayPy_Rectangle_richcompare,
+};
+
+/* Image */
+
+typedef struct {
+    PyObject_HEAD Image i;
+} RayPy_ImageObject;
+
+static void
+RayPy_Image_dealloc(RayPy_ImageObject *self)
+{
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static RayPy_ImageObject *
+RayPy_Image_new(PyTypeObject *type, PyObject *Py_UNUSED(args), PyObject *Py_UNUSED(kwds)) {
+    RayPy_ImageObject *self = (RayPy_ImageObject *)type->tp_alloc(type, 0);
+    if (self == NULL)
+        return NULL;
+    return self;
+}
+
+static int
+RayPy_Image_init(RayPy_ImageObject *self, PyObject *args, PyObject *Py_UNUSED(kwds))
+{
+    PyErr_SetString(PyExc_TypeError,
+                        "raypy.Image cannot be instantiated directly from"
+                        " Python. Use the provided module-level functions"
+                        " instead.");
+    return -1;
+}
+
+static PyMemberDef RayPy_Image_members[] = {
+    {"width", Py_T_INT, offsetof(RayPy_ImageObject, i.width), 0, "Image base width"},
+    {"height", Py_T_INT, offsetof(RayPy_ImageObject, i.height), 0, "Image base height"},
+    {"mipmaps", Py_T_INT, offsetof(RayPy_ImageObject, i.mipmaps), 0, "Mipmap levels, 1 by default"},
+    {"format", Py_T_INT, offsetof(RayPy_ImageObject, i.format), 0, "Data format (PixelFormat type)"},
+    {NULL}
+};
+
+static PyTypeObject RayPy_Image_Type = {
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "raypy.Image",
+    .tp_doc = "Image, pixel data stored in CPU memory (RAM)",
+    .tp_basicsize = sizeof(RayPy_ImageObject),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_new = (newfunc)RayPy_Image_new,
+    .tp_init = (initproc)RayPy_Image_init,
+    .tp_dealloc = (destructor)RayPy_Image_dealloc,
+    .tp_members = RayPy_Image_members,
+};
+
+/* Texture */
+
+typedef struct {
+    PyObject_HEAD Texture t;
+} RayPy_TextureObject;
+
+static void
+RayPy_Texture_dealloc(RayPy_TextureObject *self)
+{
+    Py_TYPE(self)->tp_free((PyObject *)self);
+}
+
+static RayPy_TextureObject *
+RayPy_Texture_new(PyTypeObject *type, PyObject *Py_UNUSED(args), PyObject *Py_UNUSED(kwds)) {
+    RayPy_TextureObject *self = (RayPy_TextureObject *)type->tp_alloc(type, 0);
+    if (self == NULL)
+        return NULL;
+    return self;
+}
+
+static int
+RayPy_Texture_init(RayPy_TextureObject *self, PyObject *args, PyObject *Py_UNUSED(kwds))
+{
+    PyErr_SetString(PyExc_TypeError,
+                        "raypy.Texture cannot be instantiated directly from"
+                        " Python. Use the provided module-level functions"
+                        " instead.");
+    return -1;
+}
+
+static PyMemberDef RayPy_Texture_members[] = {
+    {"id", Py_T_UINT, offsetof(RayPy_TextureObject, t.id), 0, "OpenGL texture id"},
+    {"width", Py_T_INT, offsetof(RayPy_TextureObject, t.width), 0, "Texture base width"},
+    {"height", Py_T_INT, offsetof(RayPy_TextureObject, t.height), 0, "Texture base height"},
+    {"mipmaps", Py_T_INT, offsetof(RayPy_TextureObject, t.mipmaps), 0, "Mipmap levels, 1 by default"},
+    {"format", Py_T_INT, offsetof(RayPy_TextureObject, t.format), 0, "Data format (PixelFormat type)"},
+    {NULL}
+};
+
+static PyTypeObject RayPy_Texture_Type = {
+    .ob_base = PyVarObject_HEAD_INIT(NULL, 0)
+    .tp_name = "raypy.Texture",
+    .tp_doc = "Texture, tex data stored in GPU memory (VRAM)",
+    .tp_basicsize = sizeof(RayPy_TextureObject),
+    .tp_itemsize = 0,
+    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_new = (newfunc)RayPy_Texture_new,
+    .tp_init = (initproc)RayPy_Texture_init,
+    .tp_dealloc = (destructor)RayPy_Texture_dealloc,
+    .tp_members = RayPy_Texture_members,
+};
 
 static PyObject *
 RayPy_InitWindow(PyObject *Py_UNUSED(self), PyObject *args, PyObject *keywds)
@@ -1493,83 +1334,54 @@ RayPy_DrawText(PyObject *Py_UNUSED(self), PyObject *args, PyObject *keywds)
 PyDoc_STRVAR(draw_text_doc, "Draw text (using default font)");
 
 static PyMethodDef raypymethods[] = {
-    {"init_window", (PyCFunction)(void (*)(void))RayPy_InitWindow,
-     METH_VARARGS | METH_KEYWORDS, init_window_doc},
-    {"window_should_close", (PyCFunction)RayPy_WindowShouldClose, METH_NOARGS,
-     window_should_close_doc},
+    {"init_window", (PyCFunction)(void (*)(void))RayPy_InitWindow, METH_VARARGS | METH_KEYWORDS, init_window_doc},
+    {"window_should_close", (PyCFunction)RayPy_WindowShouldClose, METH_NOARGS, window_should_close_doc},
     {"close_window", (PyCFunction)RayPy_CloseWindow, METH_NOARGS, close_window_doc},
     {"is_window_ready", (PyCFunction)RayPy_IsWindowReady, METH_NOARGS, is_window_ready_doc},
-    {"is_window_fullscreen", (PyCFunction)RayPy_IsWindowFullscreen, METH_NOARGS,
-     is_window_fullscreen_doc},
+    {"is_window_fullscreen", (PyCFunction)RayPy_IsWindowFullscreen, METH_NOARGS, is_window_fullscreen_doc},
     {"is_window_hidden", (PyCFunction)RayPy_IsWindowHidden, METH_NOARGS, is_window_hidden_doc},
-    {"is_window_minimized", (PyCFunction)RayPy_IsWindowMinimized, METH_NOARGS,
-     is_window_minimized_doc},
-    {"is_window_maximized", (PyCFunction)RayPy_IsWindowMaximized, METH_NOARGS,
-     is_window_maximized_doc},
-    {"is_window_focused", (PyCFunction)RayPy_IsWindowFocused, METH_NOARGS,
-     is_window_focused_doc},
-    {"is_window_resized", (PyCFunction)RayPy_IsWindowResized, METH_NOARGS,
-     is_window_resized_doc},
+    {"is_window_minimized", (PyCFunction)RayPy_IsWindowMinimized, METH_NOARGS, is_window_minimized_doc},
+    {"is_window_maximized", (PyCFunction)RayPy_IsWindowMaximized, METH_NOARGS, is_window_maximized_doc},
+    {"is_window_focused", (PyCFunction)RayPy_IsWindowFocused, METH_NOARGS, is_window_focused_doc},
+    {"is_window_resized", (PyCFunction)RayPy_IsWindowResized, METH_NOARGS, is_window_resized_doc},
     {"is_window_state", (PyCFunction)RayPy_IsWindowState, METH_O, is_window_state_doc},
     {"set_window_state", (PyCFunction)RayPy_SetWindowState, METH_O, set_window_state_doc},
-    {"clear_window_state", (PyCFunction)RayPy_ClearWindowState, METH_O,
-     clear_window_state_doc},
-    {"toggle_fullscreen", (PyCFunction)RayPy_ToggleFullscreen, METH_NOARGS,
-     toggle_fullscreen_doc},
+    {"clear_window_state", (PyCFunction)RayPy_ClearWindowState, METH_O, clear_window_state_doc},
+    {"toggle_fullscreen", (PyCFunction)RayPy_ToggleFullscreen, METH_NOARGS, toggle_fullscreen_doc},
     {"maximize_window", (PyCFunction)RayPy_MaximizeWindow, METH_NOARGS, maximize_window_doc},
     {"minimize_window", (PyCFunction)RayPy_MinimizeWindow, METH_NOARGS, minimize_window_doc},
     {"restore_window", (PyCFunction)RayPy_RestoreWindow, METH_NOARGS, restore_window_doc},
     {"set_window_icon", (PyCFunction)RayPy_SetWindowIcon, METH_O, set_window_icon_doc},
     {"set_window_title", (PyCFunction)RayPy_SetWindowTitle, METH_O, set_window_title_doc},
-    {"set_window_position", (PyCFunction)RayPy_SetWindowPosition, METH_VARARGS,
-     set_window_position_doc},
-    {"set_window_monitor", (PyCFunction)RayPy_SetWindowMonitor, METH_O,
-     set_window_monitor_doc},
-    {"set_window_min_size", (PyCFunction)(void (*)(void))RayPy_SetWindowMinSize,
-     METH_VARARGS | METH_KEYWORDS, set_window_min_size_doc},
-    {"set_window_size", (PyCFunction)(void (*)(void))RayPy_SetWindowSize,
-     METH_VARARGS | METH_KEYWORDS, set_window_size_doc},
-    {"get_window_handle", (PyCFunction)RayPy_GetWindowHandle, METH_NOARGS,
-     get_window_handle_doc},
+    {"set_window_position", (PyCFunction)RayPy_SetWindowPosition, METH_VARARGS, set_window_position_doc},
+    {"set_window_monitor", (PyCFunction)RayPy_SetWindowMonitor, METH_O, set_window_monitor_doc},
+    {"set_window_min_size", (PyCFunction)(void (*)(void))RayPy_SetWindowMinSize, METH_VARARGS | METH_KEYWORDS, set_window_min_size_doc},
+    {"set_window_size", (PyCFunction)(void (*)(void))RayPy_SetWindowSize, METH_VARARGS | METH_KEYWORDS, set_window_size_doc},
+    {"get_window_handle", (PyCFunction)RayPy_GetWindowHandle, METH_NOARGS, get_window_handle_doc},
     {"get_screen_width", (PyCFunction)RayPy_GetScreenWidth, METH_NOARGS, get_screen_width_doc},
-    {"get_screen_height", (PyCFunction)RayPy_GetScreenHeight, METH_NOARGS,
-     get_screen_height_doc},
-    {"get_monitor_count", (PyCFunction)RayPy_GetMonitorCount, METH_NOARGS,
-     get_monitor_count_doc},
-    {"get_current_monitor", (PyCFunction)RayPy_GetCurrentMonitor, METH_NOARGS,
-     get_current_monitor_doc},
-    {"get_monitor_position", (PyCFunction)RayPy_GetMonitorPosition, METH_O,
-     get_monitor_position_doc},
+    {"get_screen_height", (PyCFunction)RayPy_GetScreenHeight, METH_NOARGS, get_screen_height_doc},
+    {"get_monitor_count", (PyCFunction)RayPy_GetMonitorCount, METH_NOARGS, get_monitor_count_doc},
+    {"get_current_monitor", (PyCFunction)RayPy_GetCurrentMonitor, METH_NOARGS, get_current_monitor_doc},
+    {"get_monitor_position", (PyCFunction)RayPy_GetMonitorPosition, METH_O, get_monitor_position_doc},
     {"get_monitor_width", (PyCFunction)RayPy_GetMonitorWidth, METH_O, get_monitor_width_doc},
-    {"get_monitor_height", (PyCFunction)RayPy_GetMonitorHeight, METH_O,
-     get_monitor_height_doc},
-    {"get_monitor_physical_width", (PyCFunction)RayPy_GetMonitorPhysicalWidth, METH_O,
-     get_monitor_physical_width_doc},
-    {"get_monitor_physical_height", (PyCFunction)RayPy_GetMonitorPhysicalHeight, METH_O,
-     get_monitor_physical_height_doc},
-    {"get_monitor_refresh_tate", (PyCFunction)RayPy_GetMonitorRefreshRate, METH_O,
-     get_monitor_refresh_rate_doc},
-    {"get_window_position", (PyCFunction)RayPy_GetWindowPosition, METH_NOARGS,
-     get_window_position_doc},
-    {"get_window_scale_dpi", (PyCFunction)RayPy_GetWindowScaleDPI, METH_NOARGS,
-     get_window_scale_dpi_doc},
+    {"get_monitor_height", (PyCFunction)RayPy_GetMonitorHeight, METH_O, get_monitor_height_doc},
+    {"get_monitor_physical_width", (PyCFunction)RayPy_GetMonitorPhysicalWidth, METH_O, get_monitor_physical_width_doc},
+    {"get_monitor_physical_height", (PyCFunction)RayPy_GetMonitorPhysicalHeight, METH_O, get_monitor_physical_height_doc},
+    {"get_monitor_refresh_tate", (PyCFunction)RayPy_GetMonitorRefreshRate, METH_O, get_monitor_refresh_rate_doc},
+    {"get_window_position", (PyCFunction)RayPy_GetWindowPosition, METH_NOARGS, get_window_position_doc},
+    {"get_window_scale_dpi", (PyCFunction)RayPy_GetWindowScaleDPI, METH_NOARGS, get_window_scale_dpi_doc},
     {"get_monitor_name", (PyCFunction)RayPy_GetMonitorName, METH_O, get_monitor_name_doc},
-    {"set_clipboard_text", (PyCFunction)RayPy_SetClipboardText, METH_O,
-     set_clipboard_text_doc},
-    {"get_clipboard_text", (PyCFunction)RayPy_GetClipboardText, METH_NOARGS,
-     get_clipboard_text_doc},
-    {"swap_screen_buffer", (PyCFunction)RayPy_SwapScreenBuffer, METH_NOARGS,
-     swap_screen_buffer_doc},
-    {"poll_input_events", (PyCFunction)RayPy_PollInputEvents, METH_NOARGS,
-     poll_input_events_doc},
+    {"set_clipboard_text", (PyCFunction)RayPy_SetClipboardText, METH_O, set_clipboard_text_doc},
+    {"get_clipboard_text", (PyCFunction)RayPy_GetClipboardText, METH_NOARGS, get_clipboard_text_doc},
+    {"swap_screen_buffer", (PyCFunction)RayPy_SwapScreenBuffer, METH_NOARGS, swap_screen_buffer_doc},
+    {"poll_input_events", (PyCFunction)RayPy_PollInputEvents, METH_NOARGS, poll_input_events_doc},
     {"wait_time", (PyCFunction)RayPy_WaitTime, METH_O, wait_time_doc},
     {"show_cursor", (PyCFunction)RayPy_ShowCursor, METH_NOARGS, show_cursor_doc},
     {"hide_cursor", (PyCFunction)RayPy_HideCursor, METH_NOARGS, hide_cursor_doc},
     {"is_cursor_hidden", (PyCFunction)RayPy_IsCursorHidden, METH_NOARGS, is_cursor_hidden_doc},
     {"enable_cursor", (PyCFunction)RayPy_EnableCursor, METH_NOARGS, enable_cursor_doc},
     {"disable_cursor", (PyCFunction)RayPy_DisableCursor, METH_NOARGS, disable_cursor_doc},
-    {"is_cursor_on_screen", (PyCFunction)RayPy_IsCursorOnScreen, METH_NOARGS,
-     is_cursor_on_screen_doc},
+    {"is_cursor_on_screen", (PyCFunction)RayPy_IsCursorOnScreen, METH_NOARGS, is_cursor_on_screen_doc},
     {"clear_background", (PyCFunction)RayPy_ClearBackground, METH_O, clear_background_doc},
     {"begin_drawing", (PyCFunction)RayPy_BeginDrawing, METH_NOARGS, begin_drawing_doc},
     {"end_drawing", (PyCFunction)RayPy_EndDrawing, METH_NOARGS, end_drawing_doc},
@@ -1577,14 +1389,12 @@ static PyMethodDef raypymethods[] = {
     {"get_fps", (PyCFunction)RayPy_GetFPS, METH_NOARGS, get_fps_doc},
     {"get_frame_time", (PyCFunction)RayPy_GetFrameTime, METH_NOARGS, get_frame_time_doc},
     {"get_time", (PyCFunction)RayPy_GetTime, METH_NOARGS, get_time_doc},
-    {"get_random_value", (PyCFunction)RayPy_GetRandomValue, METH_VARARGS,
-     get_random_value_doc},
+    {"get_random_value", (PyCFunction)RayPy_GetRandomValue, METH_VARARGS, get_random_value_doc},
     {"set_random_seed", (PyCFunction)RayPy_SetRandomSeed, METH_O, set_random_seed_doc},
     {"take_screenshot", (PyCFunction)RayPy_TakeScreenshot, METH_O, take_screenshot_doc},
     {"set_config_flags", (PyCFunction)RayPy_SetConfigFlags, METH_O, set_config_flags_doc},
     {"trace_log", (PyCFunction)RayPy_TraceLog, METH_VARARGS, trace_log_doc},
-    {"set_trace_log_level_doc", (PyCFunction)RayPy_SetTraceLogLevel, METH_O,
-     set_trace_log_level_doc},
+    {"set_trace_log_level_doc", (PyCFunction)RayPy_SetTraceLogLevel, METH_O, set_trace_log_level_doc},
     {"open_url", (PyCFunction)RayPy_OpenURL, METH_O, open_url_doc},
     {"is_key_pressed", (PyCFunction)RayPy_IsKeyPressed, METH_O, is_key_pressed_doc},
     {"is_key_down", (PyCFunction)RayPy_IsKeyDown, METH_O, is_key_down_doc},
@@ -1594,709 +1404,411 @@ static PyMethodDef raypymethods[] = {
     {"get_key_pressed", (PyCFunction)RayPy_GetKeyPressed, METH_NOARGS, get_key_pressed_doc},
     {"get_char_pressed", (PyCFunction)RayPy_GetCharPressed, METH_NOARGS, get_char_pressed_doc},
     {"draw_fps", (PyCFunction)RayPy_DrawFPS, METH_VARARGS, draw_fps_doc},
-    {"draw_text", (PyCFunction)(void (*)(void))RayPy_DrawText, METH_VARARGS | METH_KEYWORDS,
-     draw_text_doc},
+    {"draw_text", (PyCFunction)(void (*)(void))RayPy_DrawText, METH_VARARGS | METH_KEYWORDS, draw_text_doc},
     {NULL, NULL, 0, NULL}};
+
+#define RayPyModule_AddColorMacro(m, c) (PyModule_AddObject((m), #c, PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", (c).r, (c).g, (c).b, (c).a)))
+#define RayPyModule_AddDoubleMacro(m, d) (PyModule_AddObject((m), #d, PyFloat_FromDouble((d))))
 
 static int
 RayPy_exec(PyObject *m)
 {
-    if (PyModule_AddStringConstant(m, "RAYLIB_VERSION", RAYLIB_VERSION))
-        goto error;
+#define PASTER(x,y) x ## _ ## y
+#define EVALUATOR(x,y)  PASTER(x,y)
+#define TYPENAME(name) EVALUATOR(RayPy, EVALUATOR(name, Type))
+
+#define ADD_TYPE_ALIAS(type, name) \
+    if (PyModule_AddObject(m, name, (PyObject *)&TYPENAME(type))) { \
+        Py_DECREF(&TYPENAME(type)); \
+        goto error; \
+    } 
+
+#define ADD_TYPE(type) \
+    if (PyType_Ready(&TYPENAME(type))) goto error; \
+    Py_INCREF(&TYPENAME(type)); \
+    ADD_TYPE_ALIAS(type, #type)
+    
+    if (PyModule_AddStringMacro(m, RAYLIB_VERSION)) goto error;
+    if (PyModule_AddIntMacro(m, RAYLIB_VERSION_MAJOR)) goto error;
+    if (PyModule_AddIntMacro(m, RAYLIB_VERSION_MINOR)) goto error;
+    if (PyModule_AddIntMacro(m, RAYLIB_VERSION_PATCH)) goto error;
 
     /* Basic Defines */
-    if (PyModule_AddObject(m, "PI", PyFloat_FromDouble(PI)))
-        goto error;
-    if (PyModule_AddObject(m, "DEG2RAD", PyFloat_FromDouble(DEG2RAD)))
-        goto error;
-    if (PyModule_AddObject(m, "RAD2DEG", PyFloat_FromDouble(RAD2DEG)))
-        goto error;
+    if (RayPyModule_AddDoubleMacro(m, PI)) goto error;
+    if (RayPyModule_AddDoubleMacro(m, DEG2RAD)) goto error;
+    if (RayPyModule_AddDoubleMacro(m, RAD2DEG)) goto error;
 
     /* Structures Definition */
-    if (PyType_Ready(&RayPy_Vector2_Type))
-        goto error;
-    Py_INCREF(&RayPy_Vector2_Type);
-    if (PyModule_AddObject(m, "Vector2", (PyObject *)&RayPy_Vector2_Type)) {
-        Py_DECREF(&RayPy_Vector2_Type);
-        goto error;
-    }
-    if (PyType_Ready(&RayPy_Vector3_Type))
-        goto error;
-    Py_INCREF(&RayPy_Vector3_Type);
-    if (PyModule_AddObject(m, "Vector3", (PyObject *)&RayPy_Vector3_Type)) {
-        Py_DECREF(&RayPy_Vector3_Type);
-        goto error;
-    }
-    if (PyType_Ready(&RayPy_Vector4_Type))
-        goto error;
-    Py_INCREF(&RayPy_Vector4_Type);
-    if (PyModule_AddObject(m, "Vector4", (PyObject *)&RayPy_Vector4_Type)) {
-        Py_DECREF(&RayPy_Vector4_Type);
-        goto error;
-    }
-    if (PyModule_AddObject(m, "Quaternion", (PyObject *)&RayPy_Vector4_Type)) {
-        Py_DECREF(&RayPy_Vector4_Type);
-        goto error;
-    }
-    if (PyType_Ready(&RayPy_Color_Type))
-        goto error;
-    Py_INCREF(&RayPy_Color_Type);
-    if (PyModule_AddObject(m, "Color", (PyObject *)&RayPy_Color_Type)) {
-        Py_DECREF(&RayPy_Color_Type);
-        goto error;
-    }
-
-    // clang-format off
+    ADD_TYPE(Vector2);
+    ADD_TYPE(Vector3);
+    ADD_TYPE(Vector4);
+    ADD_TYPE_ALIAS(Vector4, "Quaternion")
+    ADD_TYPE(Color);
+    ADD_TYPE(Rectangle);
+    ADD_TYPE(Image);
+    ADD_TYPE(Texture);
+    ADD_TYPE_ALIAS(Texture, "Texture2D")
+    ADD_TYPE_ALIAS(Texture, "TextureCubemap")
 
     /* Basic Colors */
-    if (PyModule_AddObject(m, "LIGHTGRAY", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 200, 200, 200, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "GRAY", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 130, 130, 130, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "DARKGRAY", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 80, 80, 80, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "YELLOW", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 253, 249, 0, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "GOLD", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 255, 203, 0, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "ORANGE", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 255, 161, 0, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "PINK", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 255, 109, 194, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "RED", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 230, 41, 55, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "MAROON", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 190, 33, 55, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "GREEN", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 0, 228, 48, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "LIME", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 0, 158, 47, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "DARKGREEN", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 0, 117, 44, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "SKYBLUE", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 102, 191, 255, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "BLUE", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 0, 121, 241, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "DARKBLUE", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 0, 82, 172, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "PURPLE", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 200, 122, 255, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "VIOLET", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 135, 60, 190, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "DARKPURPLE", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 112, 31, 126, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "BEIGE", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 211, 176, 131, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "BROWN", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 127, 106, 79, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "DARKBROWN", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 76, 63, 47, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "WHITE", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 255, 255, 255, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "BLACK", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 0, 0, 0, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "BLANK", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 0, 0, 0, 0)))
-        goto error;
-    if (PyModule_AddObject(m, "MAGENTA", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 255, 0, 255, 255)))
-        goto error;
-    if (PyModule_AddObject(m, "RAYWHITE", PyObject_CallFunction((PyObject *)&RayPy_Color_Type, "bbbb", 245, 245, 245, 255)))
-        goto error;
+    if (RayPyModule_AddColorMacro(m, LIGHTGRAY)) goto error;
+    if (RayPyModule_AddColorMacro(m, GRAY)) goto error;
+    if (RayPyModule_AddColorMacro(m, DARKGRAY)) goto error;
+    if (RayPyModule_AddColorMacro(m, YELLOW)) goto error;
+    if (RayPyModule_AddColorMacro(m, GOLD)) goto error;
+    if (RayPyModule_AddColorMacro(m, ORANGE)) goto error;
+    if (RayPyModule_AddColorMacro(m, PINK)) goto error;
+    if (RayPyModule_AddColorMacro(m, RED)) goto error;
+    if (RayPyModule_AddColorMacro(m, MAROON)) goto error;
+    if (RayPyModule_AddColorMacro(m, GREEN)) goto error;
+    if (RayPyModule_AddColorMacro(m, LIME)) goto error;
+    if (RayPyModule_AddColorMacro(m, DARKGREEN)) goto error;
+    if (RayPyModule_AddColorMacro(m, SKYBLUE)) goto error;
+    if (RayPyModule_AddColorMacro(m, BLUE)) goto error;
+    if (RayPyModule_AddColorMacro(m, DARKBLUE)) goto error;
+    if (RayPyModule_AddColorMacro(m, PURPLE)) goto error;
+    if (RayPyModule_AddColorMacro(m, VIOLET)) goto error;
+    if (RayPyModule_AddColorMacro(m, DARKPURPLE)) goto error;
+    if (RayPyModule_AddColorMacro(m, BEIGE)) goto error;
+    if (RayPyModule_AddColorMacro(m, BROWN)) goto error;
+    if (RayPyModule_AddColorMacro(m, DARKBROWN)) goto error;
+    if (RayPyModule_AddColorMacro(m, WHITE)) goto error;
+    if (RayPyModule_AddColorMacro(m, BLACK)) goto error;
+    if (RayPyModule_AddColorMacro(m, BLANK)) goto error;
+    if (RayPyModule_AddColorMacro(m, MAGENTA)) goto error;
+    if (RayPyModule_AddColorMacro(m, RAYWHITE)) goto error;
 
     /* Enumerators Definition */
-    if (PyModule_AddObject(m, "FLAG_VSYNC_HINT", PyLong_FromLong(FLAG_VSYNC_HINT)))
-        goto error;
-    if (PyModule_AddObject(m, "FLAG_FULLSCREEN_MODE", PyLong_FromLong(FLAG_FULLSCREEN_MODE)))
-        goto error;
-    if (PyModule_AddObject(m, "FLAG_WINDOW_RESIZABLE", PyLong_FromLong(FLAG_WINDOW_RESIZABLE)))
-        goto error;
-    if (PyModule_AddObject(m, "FLAG_WINDOW_UNDECORATED", PyLong_FromLong(FLAG_WINDOW_UNDECORATED)))
-        goto error;
-    if (PyModule_AddObject(m, "FLAG_WINDOW_HIDDEN", PyLong_FromLong(FLAG_WINDOW_HIDDEN)))
-        goto error;
-    if (PyModule_AddObject(m, "FLAG_WINDOW_MINIMIZED", PyLong_FromLong(FLAG_WINDOW_MINIMIZED)))
-        goto error;
-    if (PyModule_AddObject(m, "FLAG_WINDOW_MAXIMIZED", PyLong_FromLong(FLAG_WINDOW_MAXIMIZED)))
-        goto error;
-    if (PyModule_AddObject(m, "FLAG_WINDOW_UNFOCUSED", PyLong_FromLong(FLAG_WINDOW_UNFOCUSED)))
-        goto error;
-    if (PyModule_AddObject(m, "FLAG_WINDOW_TOPMOST", PyLong_FromLong(FLAG_WINDOW_TOPMOST)))
-        goto error;
-    if (PyModule_AddObject(m, "FLAG_WINDOW_ALWAYS_RUN", PyLong_FromLong(FLAG_WINDOW_ALWAYS_RUN)))
-        goto error;
-    if (PyModule_AddObject(m, "FLAG_WINDOW_TRANSPARENT", PyLong_FromLong(FLAG_WINDOW_TRANSPARENT)))
-        goto error;
-    if (PyModule_AddObject(m, "FLAG_WINDOW_HIGHDPI", PyLong_FromLong(FLAG_WINDOW_HIGHDPI)))
-        goto error;
-    if (PyModule_AddObject(m, "FLAG_MSAA_4X_HINT", PyLong_FromLong(FLAG_MSAA_4X_HINT)))
-        goto error;
-    if (PyModule_AddObject(m, "FLAG_INTERLACED_HINT", PyLong_FromLong(FLAG_INTERLACED_HINT)))
-        goto error;
-    if (PyModule_AddObject(m, "LOG_ALL", PyLong_FromLong(LOG_ALL)))
-        goto error;
-    if (PyModule_AddObject(m, "LOG_TRACE", PyLong_FromLong(LOG_TRACE)))
-        goto error;
-    if (PyModule_AddObject(m, "LOG_DEBUG", PyLong_FromLong(LOG_DEBUG)))
-        goto error;
-    if (PyModule_AddObject(m, "LOG_INFO", PyLong_FromLong(LOG_INFO)))
-        goto error;
-    if (PyModule_AddObject(m, "LOG_WARNING", PyLong_FromLong(LOG_WARNING)))
-        goto error;
-    if (PyModule_AddObject(m, "LOG_ERROR", PyLong_FromLong(LOG_ERROR)))
-        goto error;
-    if (PyModule_AddObject(m, "LOG_FATAL", PyLong_FromLong(LOG_FATAL)))
-        goto error;
-    if (PyModule_AddObject(m, "LOG_NONE", PyLong_FromLong(LOG_NONE)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_NULL", PyLong_FromLong(KEY_NULL)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_APOSTROPHE", PyLong_FromLong(KEY_APOSTROPHE)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_COMMA", PyLong_FromLong(KEY_COMMA)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_MINUS", PyLong_FromLong(KEY_MINUS)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_PERIOD", PyLong_FromLong(KEY_PERIOD)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_SLASH", PyLong_FromLong(KEY_SLASH)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_ZERO", PyLong_FromLong(KEY_ZERO)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_ONE", PyLong_FromLong(KEY_ONE)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_TWO", PyLong_FromLong(KEY_TWO)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_THREE", PyLong_FromLong(KEY_THREE)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_FOUR", PyLong_FromLong(KEY_FOUR)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_FIVE", PyLong_FromLong(KEY_FIVE)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_SIX", PyLong_FromLong(KEY_SIX)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_SEVEN", PyLong_FromLong(KEY_SEVEN)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_EIGHT", PyLong_FromLong(KEY_EIGHT)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_NINE", PyLong_FromLong(KEY_NINE)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_SEMICOLON", PyLong_FromLong(KEY_SEMICOLON)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_EQUAL", PyLong_FromLong(KEY_EQUAL)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_A", PyLong_FromLong(KEY_A)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_B", PyLong_FromLong(KEY_B)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_C", PyLong_FromLong(KEY_C)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_D", PyLong_FromLong(KEY_D)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_E", PyLong_FromLong(KEY_E)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_F", PyLong_FromLong(KEY_F)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_G", PyLong_FromLong(KEY_G)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_H", PyLong_FromLong(KEY_H)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_I", PyLong_FromLong(KEY_I)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_J", PyLong_FromLong(KEY_J)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_K", PyLong_FromLong(KEY_K)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_L", PyLong_FromLong(KEY_L)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_M", PyLong_FromLong(KEY_M)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_N", PyLong_FromLong(KEY_N)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_O", PyLong_FromLong(KEY_O)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_P", PyLong_FromLong(KEY_P)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_Q", PyLong_FromLong(KEY_Q)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_R", PyLong_FromLong(KEY_R)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_S", PyLong_FromLong(KEY_S)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_T", PyLong_FromLong(KEY_T)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_U", PyLong_FromLong(KEY_U)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_V", PyLong_FromLong(KEY_V)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_W", PyLong_FromLong(KEY_W)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_X", PyLong_FromLong(KEY_X)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_Y", PyLong_FromLong(KEY_Y)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_Z", PyLong_FromLong(KEY_Z)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_LEFT_BRACKET", PyLong_FromLong(KEY_LEFT_BRACKET)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_BACKSLASH", PyLong_FromLong(KEY_BACKSLASH)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_RIGHT_BRACKET", PyLong_FromLong(KEY_RIGHT_BRACKET)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_GRAVE", PyLong_FromLong(KEY_GRAVE)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_SPACE", PyLong_FromLong(KEY_SPACE)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_ESCAPE", PyLong_FromLong(KEY_ESCAPE)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_ENTER", PyLong_FromLong(KEY_ENTER)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_TAB", PyLong_FromLong(KEY_TAB)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_BACKSPACE", PyLong_FromLong(KEY_BACKSPACE)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_INSERT", PyLong_FromLong(KEY_INSERT)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_DELETE", PyLong_FromLong(KEY_DELETE)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_RIGHT", PyLong_FromLong(KEY_RIGHT)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_LEFT", PyLong_FromLong(KEY_LEFT)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_DOWN", PyLong_FromLong(KEY_DOWN)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_UP", PyLong_FromLong(KEY_UP)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_PAGE_UP", PyLong_FromLong(KEY_PAGE_UP)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_PAGE_DOWN", PyLong_FromLong(KEY_PAGE_DOWN)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_HOME", PyLong_FromLong(KEY_HOME)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_END", PyLong_FromLong(KEY_END)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_CAPS_LOCK", PyLong_FromLong(KEY_CAPS_LOCK)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_SCROLL_LOCK", PyLong_FromLong(KEY_SCROLL_LOCK)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_NUM_LOCK", PyLong_FromLong(KEY_NUM_LOCK)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_PRINT_SCREEN", PyLong_FromLong(KEY_PRINT_SCREEN)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_PAUSE", PyLong_FromLong(KEY_PAUSE)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_F1", PyLong_FromLong(KEY_F1)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_F2", PyLong_FromLong(KEY_F2)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_F3", PyLong_FromLong(KEY_F3)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_F4", PyLong_FromLong(KEY_F4)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_F5", PyLong_FromLong(KEY_F5)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_F6", PyLong_FromLong(KEY_F6)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_F7", PyLong_FromLong(KEY_F7)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_F8", PyLong_FromLong(KEY_F8)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_F9", PyLong_FromLong(KEY_F9)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_F10", PyLong_FromLong(KEY_F10)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_F11", PyLong_FromLong(KEY_F11)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_F12", PyLong_FromLong(KEY_F12)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_LEFT_SHIFT", PyLong_FromLong(KEY_LEFT_SHIFT)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_LEFT_CONTROL", PyLong_FromLong(KEY_LEFT_CONTROL)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_LEFT_ALT", PyLong_FromLong(KEY_LEFT_ALT)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_LEFT_SUPER", PyLong_FromLong(KEY_LEFT_SUPER)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_RIGHT_SHIFT", PyLong_FromLong(KEY_RIGHT_SHIFT)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_RIGHT_CONTROL", PyLong_FromLong(KEY_RIGHT_CONTROL)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_RIGHT_ALT", PyLong_FromLong(KEY_RIGHT_ALT)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_RIGHT_SUPER", PyLong_FromLong(KEY_RIGHT_SUPER)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KB_MENU", PyLong_FromLong(KEY_KB_MENU)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KP_0", PyLong_FromLong(KEY_KP_0)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KP_1", PyLong_FromLong(KEY_KP_1)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KP_2", PyLong_FromLong(KEY_KP_2)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KP_3", PyLong_FromLong(KEY_KP_3)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KP_4", PyLong_FromLong(KEY_KP_4)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KP_5", PyLong_FromLong(KEY_KP_5)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KP_6", PyLong_FromLong(KEY_KP_6)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KP_7", PyLong_FromLong(KEY_KP_7)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KP_8", PyLong_FromLong(KEY_KP_8)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KP_9", PyLong_FromLong(KEY_KP_9)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KP_DECIMAL", PyLong_FromLong(KEY_KP_DECIMAL)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KP_DIVIDE", PyLong_FromLong(KEY_KP_DIVIDE)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KP_MULTIPLY", PyLong_FromLong(KEY_KP_MULTIPLY)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KP_SUBTRACT", PyLong_FromLong(KEY_KP_SUBTRACT)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KP_ADD", PyLong_FromLong(KEY_KP_ADD)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KP_ENTER", PyLong_FromLong(KEY_KP_ENTER)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_KP_EQUAL", PyLong_FromLong(KEY_KP_EQUAL)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_BACK", PyLong_FromLong(KEY_BACK)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_MENU", PyLong_FromLong(KEY_MENU)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_VOLUME_UP", PyLong_FromLong(KEY_VOLUME_UP)))
-        goto error;
-    if (PyModule_AddObject(m, "KEY_VOLUME_DOWN", PyLong_FromLong(KEY_VOLUME_DOWN)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_BUTTON_LEFT", PyLong_FromLong(MOUSE_BUTTON_LEFT)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_BUTTON_RIGHT", PyLong_FromLong(MOUSE_BUTTON_RIGHT)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_BUTTON_MIDDLE", PyLong_FromLong(MOUSE_BUTTON_MIDDLE)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_BUTTON_SIDE", PyLong_FromLong(MOUSE_BUTTON_SIDE)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_BUTTON_EXTRA", PyLong_FromLong(MOUSE_BUTTON_EXTRA)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_BUTTON_FORWARD", PyLong_FromLong(MOUSE_BUTTON_FORWARD)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_BUTTON_BACK", PyLong_FromLong(MOUSE_BUTTON_BACK)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_CURSOR_DEFAULT", PyLong_FromLong(MOUSE_CURSOR_DEFAULT)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_CURSOR_ARROW", PyLong_FromLong(MOUSE_CURSOR_ARROW)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_CURSOR_IBEAM", PyLong_FromLong(MOUSE_CURSOR_IBEAM)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_CURSOR_CROSSHAIR", PyLong_FromLong(MOUSE_CURSOR_CROSSHAIR)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_CURSOR_POINTING_HAND", PyLong_FromLong(MOUSE_CURSOR_POINTING_HAND)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_CURSOR_RESIZE_EW", PyLong_FromLong(MOUSE_CURSOR_RESIZE_EW)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_CURSOR_RESIZE_NS", PyLong_FromLong(MOUSE_CURSOR_RESIZE_NS)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_CURSOR_RESIZE_NWSE", PyLong_FromLong(MOUSE_CURSOR_RESIZE_NWSE)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_CURSOR_RESIZE_NESW", PyLong_FromLong(MOUSE_CURSOR_RESIZE_NESW)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_CURSOR_RESIZE_ALL", PyLong_FromLong(MOUSE_CURSOR_RESIZE_ALL)))
-        goto error;
-    if (PyModule_AddObject(m, "MOUSE_CURSOR_NOT_ALLOWED", PyLong_FromLong(MOUSE_CURSOR_NOT_ALLOWED)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_UNKNOWN", PyLong_FromLong(GAMEPAD_BUTTON_UNKNOWN)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_LEFT_FACE_UP", PyLong_FromLong(GAMEPAD_BUTTON_LEFT_FACE_UP)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_LEFT_FACE_RIGHT", PyLong_FromLong(GAMEPAD_BUTTON_LEFT_FACE_RIGHT)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_LEFT_FACE_DOWN", PyLong_FromLong(GAMEPAD_BUTTON_LEFT_FACE_DOWN)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_LEFT_FACE_LEFT", PyLong_FromLong(GAMEPAD_BUTTON_LEFT_FACE_LEFT)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_RIGHT_FACE_UP", PyLong_FromLong(GAMEPAD_BUTTON_RIGHT_FACE_UP)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_RIGHT_FACE_RIGHT", PyLong_FromLong(GAMEPAD_BUTTON_RIGHT_FACE_RIGHT)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_RIGHT_FACE_DOWN", PyLong_FromLong(GAMEPAD_BUTTON_RIGHT_FACE_DOWN)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_RIGHT_FACE_LEFT", PyLong_FromLong(GAMEPAD_BUTTON_RIGHT_FACE_LEFT)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_LEFT_TRIGGER_1", PyLong_FromLong(GAMEPAD_BUTTON_LEFT_TRIGGER_1)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_LEFT_TRIGGER_2", PyLong_FromLong(GAMEPAD_BUTTON_LEFT_TRIGGER_2)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_RIGHT_TRIGGER_1", PyLong_FromLong(GAMEPAD_BUTTON_RIGHT_TRIGGER_1)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_RIGHT_TRIGGER_2", PyLong_FromLong(GAMEPAD_BUTTON_RIGHT_TRIGGER_2)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_MIDDLE_LEFT", PyLong_FromLong(GAMEPAD_BUTTON_MIDDLE_LEFT)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_MIDDLE", PyLong_FromLong(GAMEPAD_BUTTON_MIDDLE)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_MIDDLE_RIGHT", PyLong_FromLong(GAMEPAD_BUTTON_MIDDLE_RIGHT)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_LEFT_THUMB", PyLong_FromLong(GAMEPAD_BUTTON_LEFT_THUMB)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_BUTTON_RIGHT_THUMB", PyLong_FromLong(GAMEPAD_BUTTON_RIGHT_THUMB)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_AXIS_LEFT_X", PyLong_FromLong(GAMEPAD_AXIS_LEFT_X)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_AXIS_LEFT_Y", PyLong_FromLong(GAMEPAD_AXIS_LEFT_Y)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_AXIS_RIGHT_X", PyLong_FromLong(GAMEPAD_AXIS_RIGHT_X)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_AXIS_RIGHT_Y", PyLong_FromLong(GAMEPAD_AXIS_RIGHT_Y)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_AXIS_LEFT_TRIGGER", PyLong_FromLong(GAMEPAD_AXIS_LEFT_TRIGGER)))
-        goto error;
-    if (PyModule_AddObject(m, "GAMEPAD_AXIS_RIGHT_TRIGGER", PyLong_FromLong(GAMEPAD_AXIS_RIGHT_TRIGGER)))
-        goto error;
-    if (PyModule_AddObject(m, "MATERIAL_MAP_ALBEDO", PyLong_FromLong(MATERIAL_MAP_ALBEDO)))
-        goto error;
-    if (PyModule_AddObject(m, "MATERIAL_MAP_METALNESS", PyLong_FromLong(MATERIAL_MAP_METALNESS)))
-        goto error;
-    if (PyModule_AddObject(m, "MATERIAL_MAP_NORMAL", PyLong_FromLong(MATERIAL_MAP_NORMAL)))
-        goto error;
-    if (PyModule_AddObject(m, "MATERIAL_MAP_ROUGHNESS", PyLong_FromLong(MATERIAL_MAP_ROUGHNESS)))
-        goto error;
-    if (PyModule_AddObject(m, "MATERIAL_MAP_OCCLUSION", PyLong_FromLong(MATERIAL_MAP_OCCLUSION)))
-        goto error;
-    if (PyModule_AddObject(m, "MATERIAL_MAP_EMISSION", PyLong_FromLong(MATERIAL_MAP_EMISSION)))
-        goto error;
-    if (PyModule_AddObject(m, "MATERIAL_MAP_HEIGHT", PyLong_FromLong(MATERIAL_MAP_HEIGHT)))
-        goto error;
-    if (PyModule_AddObject(m, "MATERIAL_MAP_CUBEMAP", PyLong_FromLong(MATERIAL_MAP_CUBEMAP)))
-        goto error;
-    if (PyModule_AddObject(m, "MATERIAL_MAP_IRRADIANCE", PyLong_FromLong(MATERIAL_MAP_IRRADIANCE)))
-        goto error;
-    if (PyModule_AddObject(m, "MATERIAL_MAP_PREFILTER", PyLong_FromLong(MATERIAL_MAP_PREFILTER)))
-        goto error;
-    if (PyModule_AddObject(m, "MATERIAL_MAP_BRDF", PyLong_FromLong(MATERIAL_MAP_BRDF)))
-        goto error;
-    if (PyModule_AddObject(m, "MATERIAL_MAP_DIFFUSE", PyLong_FromLong(MATERIAL_MAP_DIFFUSE)))
-        goto error;
-    if (PyModule_AddObject(m, "MATERIAL_MAP_SPECULAR", PyLong_FromLong(MATERIAL_MAP_SPECULAR)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_VERTEX_POSITION", PyLong_FromLong(SHADER_LOC_VERTEX_POSITION)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_VERTEX_TEXCOORD01", PyLong_FromLong(SHADER_LOC_VERTEX_TEXCOORD01)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_VERTEX_TEXCOORD02", PyLong_FromLong(SHADER_LOC_VERTEX_TEXCOORD02)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_VERTEX_NORMAL", PyLong_FromLong(SHADER_LOC_VERTEX_NORMAL)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_VERTEX_TANGENT", PyLong_FromLong(SHADER_LOC_VERTEX_TANGENT)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_VERTEX_COLOR", PyLong_FromLong(SHADER_LOC_VERTEX_COLOR)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MATRIX_MVP", PyLong_FromLong(SHADER_LOC_MATRIX_MVP)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MATRIX_VIEW", PyLong_FromLong(SHADER_LOC_MATRIX_VIEW)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MATRIX_PROJECTION", PyLong_FromLong(SHADER_LOC_MATRIX_PROJECTION)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MATRIX_MODEL", PyLong_FromLong(SHADER_LOC_MATRIX_MODEL)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MATRIX_NORMAL", PyLong_FromLong(SHADER_LOC_MATRIX_NORMAL)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_VECTOR_VIEW", PyLong_FromLong(SHADER_LOC_VECTOR_VIEW)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_COLOR_DIFFUSE", PyLong_FromLong(SHADER_LOC_COLOR_DIFFUSE)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_COLOR_SPECULAR", PyLong_FromLong(SHADER_LOC_COLOR_SPECULAR)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_COLOR_AMBIENT", PyLong_FromLong(SHADER_LOC_COLOR_AMBIENT)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MAP_ALBEDO", PyLong_FromLong(SHADER_LOC_MAP_ALBEDO)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MAP_METALNESS", PyLong_FromLong(SHADER_LOC_MAP_METALNESS)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MAP_NORMAL", PyLong_FromLong(SHADER_LOC_MAP_NORMAL)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MAP_ROUGHNESS", PyLong_FromLong(SHADER_LOC_MAP_ROUGHNESS)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MAP_OCCLUSION", PyLong_FromLong(SHADER_LOC_MAP_OCCLUSION)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MAP_EMISSION", PyLong_FromLong(SHADER_LOC_MAP_EMISSION)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MAP_HEIGHT", PyLong_FromLong(SHADER_LOC_MAP_HEIGHT)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MAP_CUBEMAP", PyLong_FromLong(SHADER_LOC_MAP_CUBEMAP)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MAP_IRRADIANCE", PyLong_FromLong(SHADER_LOC_MAP_IRRADIANCE)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MAP_PREFILTER", PyLong_FromLong(SHADER_LOC_MAP_PREFILTER)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MAP_BRDF", PyLong_FromLong(SHADER_LOC_MAP_BRDF)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MAP_DIFFUSE", PyLong_FromLong(SHADER_LOC_MAP_DIFFUSE)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_LOC_MAP_SPECULAR", PyLong_FromLong(SHADER_LOC_MAP_SPECULAR)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_UNIFORM_FLOAT", PyLong_FromLong(SHADER_UNIFORM_FLOAT)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_UNIFORM_VEC2", PyLong_FromLong(SHADER_UNIFORM_VEC2)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_UNIFORM_VEC3", PyLong_FromLong(SHADER_UNIFORM_VEC3)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_UNIFORM_VEC4", PyLong_FromLong(SHADER_UNIFORM_VEC4)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_UNIFORM_INT", PyLong_FromLong(SHADER_UNIFORM_INT)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_UNIFORM_IVEC2", PyLong_FromLong(SHADER_UNIFORM_IVEC2)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_UNIFORM_IVEC3", PyLong_FromLong(SHADER_UNIFORM_IVEC3)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_UNIFORM_IVEC4", PyLong_FromLong(SHADER_UNIFORM_IVEC4)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_UNIFORM_SAMPLER2D", PyLong_FromLong(SHADER_UNIFORM_SAMPLER2D)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_ATTRIB_FLOAT", PyLong_FromLong(SHADER_ATTRIB_FLOAT)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_ATTRIB_VEC2", PyLong_FromLong(SHADER_ATTRIB_VEC2)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_ATTRIB_VEC3", PyLong_FromLong(SHADER_ATTRIB_VEC3)))
-        goto error;
-    if (PyModule_AddObject(m, "SHADER_ATTRIB_VEC4", PyLong_FromLong(SHADER_ATTRIB_VEC4)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_UNCOMPRESSED_GRAYSCALE", PyLong_FromLong(PIXELFORMAT_UNCOMPRESSED_GRAYSCALE)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA", PyLong_FromLong(PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_UNCOMPRESSED_R5G6B5", PyLong_FromLong(PIXELFORMAT_UNCOMPRESSED_R5G6B5)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_UNCOMPRESSED_R8G8B8", PyLong_FromLong(PIXELFORMAT_UNCOMPRESSED_R8G8B8)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_UNCOMPRESSED_R5G5B5A1", PyLong_FromLong(PIXELFORMAT_UNCOMPRESSED_R5G5B5A1)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_UNCOMPRESSED_R4G4B4A4", PyLong_FromLong(PIXELFORMAT_UNCOMPRESSED_R4G4B4A4)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_UNCOMPRESSED_R8G8B8A8", PyLong_FromLong(PIXELFORMAT_UNCOMPRESSED_R8G8B8A8)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_UNCOMPRESSED_R32", PyLong_FromLong(PIXELFORMAT_UNCOMPRESSED_R32)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_UNCOMPRESSED_R32G32B32", PyLong_FromLong(PIXELFORMAT_UNCOMPRESSED_R32G32B32)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_UNCOMPRESSED_R32G32B32A32", PyLong_FromLong(PIXELFORMAT_UNCOMPRESSED_R32G32B32A32)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_COMPRESSED_DXT1_RGB", PyLong_FromLong(PIXELFORMAT_COMPRESSED_DXT1_RGB)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_COMPRESSED_DXT1_RGBA", PyLong_FromLong(PIXELFORMAT_COMPRESSED_DXT1_RGBA)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_COMPRESSED_DXT3_RGBA", PyLong_FromLong(PIXELFORMAT_COMPRESSED_DXT3_RGBA)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_COMPRESSED_DXT5_RGBA", PyLong_FromLong(PIXELFORMAT_COMPRESSED_DXT5_RGBA)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_COMPRESSED_ETC1_RGB", PyLong_FromLong(PIXELFORMAT_COMPRESSED_ETC1_RGB)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_COMPRESSED_ETC2_RGB", PyLong_FromLong(PIXELFORMAT_COMPRESSED_ETC2_RGB)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_COMPRESSED_ETC2_EAC_RGBA", PyLong_FromLong(PIXELFORMAT_COMPRESSED_ETC2_EAC_RGBA)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_COMPRESSED_PVRT_RGB", PyLong_FromLong(PIXELFORMAT_COMPRESSED_PVRT_RGB)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_COMPRESSED_PVRT_RGBA", PyLong_FromLong(PIXELFORMAT_COMPRESSED_PVRT_RGBA)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_COMPRESSED_ASTC_4x4_RGBA", PyLong_FromLong(PIXELFORMAT_COMPRESSED_ASTC_4x4_RGBA)))
-        goto error;
-    if (PyModule_AddObject(m, "PIXELFORMAT_COMPRESSED_ASTC_8x8_RGBA", PyLong_FromLong(PIXELFORMAT_COMPRESSED_ASTC_8x8_RGBA)))
-        goto error;
-    if (PyModule_AddObject(m, "TEXTURE_FILTER_POINT", PyLong_FromLong(TEXTURE_FILTER_POINT)))
-        goto error;
-    if (PyModule_AddObject(m, "TEXTURE_FILTER_BILINEAR", PyLong_FromLong(TEXTURE_FILTER_BILINEAR)))
-        goto error;
-    if (PyModule_AddObject(m, "TEXTURE_FILTER_TRILINEAR", PyLong_FromLong(TEXTURE_FILTER_TRILINEAR)))
-        goto error;
-    if (PyModule_AddObject(m, "TEXTURE_FILTER_ANISOTROPIC_4X", PyLong_FromLong(TEXTURE_FILTER_ANISOTROPIC_4X)))
-        goto error;
-    if (PyModule_AddObject(m, "TEXTURE_FILTER_ANISOTROPIC_8X", PyLong_FromLong(TEXTURE_FILTER_ANISOTROPIC_8X)))
-        goto error;
-    if (PyModule_AddObject(m, "TEXTURE_FILTER_ANISOTROPIC_16X", PyLong_FromLong(TEXTURE_FILTER_ANISOTROPIC_16X)))
-        goto error;
-    if (PyModule_AddObject(m, "TEXTURE_WRAP_REPEAT", PyLong_FromLong(TEXTURE_WRAP_REPEAT)))
-        goto error;
-    if (PyModule_AddObject(m, "TEXTURE_WRAP_CLAMP", PyLong_FromLong(TEXTURE_WRAP_CLAMP)))
-        goto error;
-    if (PyModule_AddObject(m, "TEXTURE_WRAP_MIRROR_REPEAT", PyLong_FromLong(TEXTURE_WRAP_MIRROR_REPEAT)))
-        goto error;
-    if (PyModule_AddObject(m, "TEXTURE_WRAP_MIRROR_CLAMP", PyLong_FromLong(TEXTURE_WRAP_MIRROR_CLAMP)))
-        goto error;
-    if (PyModule_AddObject(m, "CUBEMAP_LAYOUT_AUTO_DETECT", PyLong_FromLong(CUBEMAP_LAYOUT_AUTO_DETECT)))
-        goto error;
-    if (PyModule_AddObject(m, "CUBEMAP_LAYOUT_LINE_VERTICAL", PyLong_FromLong(CUBEMAP_LAYOUT_LINE_VERTICAL)))
-        goto error;
-    if (PyModule_AddObject(m, "CUBEMAP_LAYOUT_LINE_HORIZONTAL", PyLong_FromLong(CUBEMAP_LAYOUT_LINE_HORIZONTAL)))
-        goto error;
-    if (PyModule_AddObject(m, "CUBEMAP_LAYOUT_CROSS_THREE_BY_FOUR", PyLong_FromLong(CUBEMAP_LAYOUT_CROSS_THREE_BY_FOUR)))
-        goto error;
-    if (PyModule_AddObject(m, "CUBEMAP_LAYOUT_CROSS_FOUR_BY_THREE", PyLong_FromLong(CUBEMAP_LAYOUT_CROSS_FOUR_BY_THREE)))
-        goto error;
-    if (PyModule_AddObject(m, "CUBEMAP_LAYOUT_PANORAMA", PyLong_FromLong(CUBEMAP_LAYOUT_PANORAMA)))
-        goto error;
-    if (PyModule_AddObject(m, "FONT_DEFAULT", PyLong_FromLong(FONT_DEFAULT)))
-        goto error;
-    if (PyModule_AddObject(m, "FONT_BITMAP", PyLong_FromLong(FONT_BITMAP)))
-        goto error;
-    if (PyModule_AddObject(m, "FONT_SDF", PyLong_FromLong(FONT_SDF)))
-        goto error;
-    if (PyModule_AddObject(m, "BLEND_ALPHA", PyLong_FromLong(BLEND_ALPHA)))
-        goto error;
-    if (PyModule_AddObject(m, "BLEND_ADDITIVE", PyLong_FromLong(BLEND_ADDITIVE)))
-        goto error;
-    if (PyModule_AddObject(m, "BLEND_MULTIPLIED", PyLong_FromLong(BLEND_MULTIPLIED)))
-        goto error;
-    if (PyModule_AddObject(m, "BLEND_ADD_COLORS", PyLong_FromLong(BLEND_ADD_COLORS)))
-        goto error;
-    if (PyModule_AddObject(m, "BLEND_SUBTRACT_COLORS", PyLong_FromLong(BLEND_SUBTRACT_COLORS)))
-        goto error;
-    if (PyModule_AddObject(m, "BLEND_CUSTOM", PyLong_FromLong(BLEND_CUSTOM)))
-        goto error;
-    if (PyModule_AddObject(m, "GESTURE_NONE", PyLong_FromLong(GESTURE_NONE)))
-        goto error;
-    if (PyModule_AddObject(m, "GESTURE_TAP", PyLong_FromLong(GESTURE_TAP)))
-        goto error;
-    if (PyModule_AddObject(m, "GESTURE_DOUBLETAP", PyLong_FromLong(GESTURE_DOUBLETAP)))
-        goto error;
-    if (PyModule_AddObject(m, "GESTURE_HOLD", PyLong_FromLong(GESTURE_HOLD)))
-        goto error;
-    if (PyModule_AddObject(m, "GESTURE_DRAG", PyLong_FromLong(GESTURE_DRAG)))
-        goto error;
-    if (PyModule_AddObject(m, "GESTURE_SWIPE_RIGHT", PyLong_FromLong(GESTURE_SWIPE_RIGHT)))
-        goto error;
-    if (PyModule_AddObject(m, "GESTURE_SWIPE_LEFT", PyLong_FromLong(GESTURE_SWIPE_LEFT)))
-        goto error;
-    if (PyModule_AddObject(m, "GESTURE_SWIPE_UP", PyLong_FromLong(GESTURE_SWIPE_UP)))
-        goto error;
-    if (PyModule_AddObject(m, "GESTURE_SWIPE_DOWN", PyLong_FromLong(GESTURE_SWIPE_DOWN)))
-        goto error;
-    if (PyModule_AddObject(m, "GESTURE_PINCH_IN", PyLong_FromLong(GESTURE_PINCH_IN)))
-        goto error;
-    if (PyModule_AddObject(m, "GESTURE_PINCH_OUT", PyLong_FromLong(GESTURE_PINCH_OUT)))
-        goto error;
-    if (PyModule_AddObject(m, "CAMERA_CUSTOM", PyLong_FromLong(CAMERA_CUSTOM)))
-        goto error;
-    if (PyModule_AddObject(m, "CAMERA_FREE", PyLong_FromLong(CAMERA_FREE)))
-        goto error;
-    if (PyModule_AddObject(m, "CAMERA_ORBITAL", PyLong_FromLong(CAMERA_ORBITAL)))
-        goto error;
-    if (PyModule_AddObject(m, "CAMERA_FIRST_PERSON", PyLong_FromLong(CAMERA_FIRST_PERSON)))
-        goto error;
-    if (PyModule_AddObject(m, "CAMERA_THIRD_PERSON", PyLong_FromLong(CAMERA_THIRD_PERSON)))
-        goto error;
-    if (PyModule_AddObject(m, "CAMERA_PERSPECTIVE", PyLong_FromLong(CAMERA_PERSPECTIVE)))
-        goto error;
-    if (PyModule_AddObject(m, "CAMERA_ORTHOGRAPHIC", PyLong_FromLong(CAMERA_ORTHOGRAPHIC)))
-        goto error;
-    if (PyModule_AddObject(m, "NPATCH_NINE_PATCH", PyLong_FromLong(NPATCH_NINE_PATCH)))
-        goto error;
-    if (PyModule_AddObject(m, "NPATCH_THREE_PATCH_VERTICAL", PyLong_FromLong(NPATCH_THREE_PATCH_VERTICAL)))
-        goto error;
-    if (PyModule_AddObject(m, "NPATCH_THREE_PATCH_HORIZONTAL", PyLong_FromLong(NPATCH_THREE_PATCH_HORIZONTAL)))
-        goto error;
-
-    // clang-format on
+    // System/Window config flags
+    if (PyModule_AddIntMacro(m, FLAG_VSYNC_HINT)) goto error;
+    if (PyModule_AddIntMacro(m, FLAG_FULLSCREEN_MODE)) goto error;
+    if (PyModule_AddIntMacro(m, FLAG_WINDOW_RESIZABLE)) goto error;
+    if (PyModule_AddIntMacro(m, FLAG_WINDOW_UNDECORATED)) goto error;
+    if (PyModule_AddIntMacro(m, FLAG_WINDOW_HIDDEN)) goto error;
+    if (PyModule_AddIntMacro(m, FLAG_WINDOW_MINIMIZED)) goto error;
+    if (PyModule_AddIntMacro(m, FLAG_WINDOW_MAXIMIZED)) goto error;
+    if (PyModule_AddIntMacro(m, FLAG_WINDOW_UNFOCUSED)) goto error;
+    if (PyModule_AddIntMacro(m, FLAG_WINDOW_TOPMOST)) goto error;
+    if (PyModule_AddIntMacro(m, FLAG_WINDOW_ALWAYS_RUN)) goto error;
+    if (PyModule_AddIntMacro(m, FLAG_WINDOW_TRANSPARENT)) goto error;
+    if (PyModule_AddIntMacro(m, FLAG_WINDOW_HIGHDPI)) goto error;
+    if (PyModule_AddIntMacro(m, FLAG_WINDOW_MOUSE_PASSTHROUGH)) goto error;
+    if (PyModule_AddIntMacro(m, FLAG_BORDERLESS_WINDOWED_MODE)) goto error;
+    if (PyModule_AddIntMacro(m, FLAG_MSAA_4X_HINT)) goto error;
+    if (PyModule_AddIntMacro(m, FLAG_INTERLACED_HINT)) goto error;
+    // Trace log level
+    if (PyModule_AddIntMacro(m, LOG_ALL)) goto error;
+    if (PyModule_AddIntMacro(m, LOG_TRACE)) goto error;
+    if (PyModule_AddIntMacro(m, LOG_DEBUG)) goto error;
+    if (PyModule_AddIntMacro(m, LOG_INFO)) goto error;
+    if (PyModule_AddIntMacro(m, LOG_WARNING)) goto error;
+    if (PyModule_AddIntMacro(m, LOG_ERROR)) goto error;
+    if (PyModule_AddIntMacro(m, LOG_FATAL)) goto error;
+    if (PyModule_AddIntMacro(m, LOG_NONE)) goto error;
+    // Keyboard keys (US keyboard layout)
+    if (PyModule_AddIntMacro(m, KEY_NULL)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_APOSTROPHE)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_COMMA)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_MINUS)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_PERIOD)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_SLASH)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_ZERO)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_ONE)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_TWO)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_THREE)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_FOUR)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_FIVE)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_SIX)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_SEVEN)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_EIGHT)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_NINE)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_SEMICOLON)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_EQUAL)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_A)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_B)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_C)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_D)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_E)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_F)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_G)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_H)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_I)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_J)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_K)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_L)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_M)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_N)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_O)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_P)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_Q)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_R)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_S)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_T)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_U)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_V)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_W)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_X)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_Y)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_Z)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_LEFT_BRACKET)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_BACKSLASH)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_RIGHT_BRACKET)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_GRAVE)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_SPACE)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_ESCAPE)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_ENTER)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_TAB)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_BACKSPACE)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_INSERT)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_DELETE)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_RIGHT)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_LEFT)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_DOWN)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_UP)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_PAGE_UP)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_PAGE_DOWN)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_HOME)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_END)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_CAPS_LOCK)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_SCROLL_LOCK)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_NUM_LOCK)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_PRINT_SCREEN)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_PAUSE)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_F1)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_F2)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_F3)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_F4)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_F5)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_F6)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_F7)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_F8)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_F9)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_F10)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_F11)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_F12)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_LEFT_SHIFT)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_LEFT_CONTROL)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_LEFT_ALT)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_LEFT_SUPER)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_RIGHT_SHIFT)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_RIGHT_CONTROL)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_RIGHT_ALT)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_RIGHT_SUPER)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KB_MENU)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KP_0)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KP_1)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KP_2)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KP_3)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KP_4)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KP_5)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KP_6)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KP_7)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KP_8)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KP_9)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KP_DECIMAL)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KP_DIVIDE)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KP_MULTIPLY)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KP_SUBTRACT)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KP_ADD)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KP_ENTER)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_KP_EQUAL)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_BACK)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_MENU)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_VOLUME_UP)) goto error;
+    if (PyModule_AddIntMacro(m, KEY_VOLUME_DOWN)) goto error;
+    // Add backwards compatibility support for deprecated names
+    if (PyModule_AddIntMacro(m, MOUSE_LEFT_BUTTON)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_RIGHT_BUTTON)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_MIDDLE_BUTTON)) goto error;
+    // Mouse buttons
+    if (PyModule_AddIntMacro(m, MOUSE_BUTTON_LEFT)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_BUTTON_RIGHT)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_BUTTON_MIDDLE)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_BUTTON_SIDE)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_BUTTON_EXTRA)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_BUTTON_FORWARD)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_BUTTON_BACK)) goto error;
+    // Mouse cursor
+    if (PyModule_AddIntMacro(m, MOUSE_CURSOR_DEFAULT)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_CURSOR_ARROW)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_CURSOR_IBEAM)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_CURSOR_CROSSHAIR)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_CURSOR_POINTING_HAND)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_CURSOR_RESIZE_EW)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_CURSOR_RESIZE_NS)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_CURSOR_RESIZE_NWSE)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_CURSOR_RESIZE_NESW)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_CURSOR_RESIZE_ALL)) goto error;
+    if (PyModule_AddIntMacro(m, MOUSE_CURSOR_NOT_ALLOWED)) goto error;
+    // Gamepad buttons
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_UNKNOWN)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_LEFT_FACE_UP)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_LEFT_FACE_RIGHT)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_LEFT_FACE_DOWN)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_LEFT_FACE_LEFT)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_RIGHT_FACE_UP)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_RIGHT_FACE_RIGHT)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_RIGHT_FACE_DOWN)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_RIGHT_FACE_LEFT)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_LEFT_TRIGGER_1)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_LEFT_TRIGGER_2)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_RIGHT_TRIGGER_1)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_RIGHT_TRIGGER_2)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_MIDDLE_LEFT)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_MIDDLE)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_MIDDLE_RIGHT)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_LEFT_THUMB)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_BUTTON_RIGHT_THUMB)) goto error;
+    // Gamepad axis
+    if (PyModule_AddIntMacro(m, GAMEPAD_AXIS_LEFT_X)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_AXIS_LEFT_Y)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_AXIS_RIGHT_X)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_AXIS_RIGHT_Y)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_AXIS_LEFT_TRIGGER)) goto error;
+    if (PyModule_AddIntMacro(m, GAMEPAD_AXIS_RIGHT_TRIGGER)) goto error;
+    // Material map index
+    if (PyModule_AddIntMacro(m, MATERIAL_MAP_ALBEDO)) goto error;
+    if (PyModule_AddIntMacro(m, MATERIAL_MAP_METALNESS)) goto error;
+    if (PyModule_AddIntMacro(m, MATERIAL_MAP_NORMAL)) goto error;
+    if (PyModule_AddIntMacro(m, MATERIAL_MAP_ROUGHNESS)) goto error;
+    if (PyModule_AddIntMacro(m, MATERIAL_MAP_OCCLUSION)) goto error;
+    if (PyModule_AddIntMacro(m, MATERIAL_MAP_EMISSION)) goto error;
+    if (PyModule_AddIntMacro(m, MATERIAL_MAP_HEIGHT)) goto error;
+    if (PyModule_AddIntMacro(m, MATERIAL_MAP_CUBEMAP)) goto error;
+    if (PyModule_AddIntMacro(m, MATERIAL_MAP_IRRADIANCE)) goto error;
+    if (PyModule_AddIntMacro(m, MATERIAL_MAP_PREFILTER)) goto error;
+    if (PyModule_AddIntMacro(m, MATERIAL_MAP_BRDF)) goto error;
+    if (PyModule_AddIntMacro(m, MATERIAL_MAP_DIFFUSE)) goto error;
+    if (PyModule_AddIntMacro(m, MATERIAL_MAP_SPECULAR)) goto error;
+    // Shader location index
+    if (PyModule_AddIntMacro(m, SHADER_LOC_VERTEX_POSITION)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_VERTEX_TEXCOORD01)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_VERTEX_TEXCOORD02)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_VERTEX_NORMAL)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_VERTEX_TANGENT)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_VERTEX_COLOR)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MATRIX_MVP)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MATRIX_VIEW)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MATRIX_PROJECTION)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MATRIX_MODEL)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MATRIX_NORMAL)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_VECTOR_VIEW)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_COLOR_DIFFUSE)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_COLOR_SPECULAR)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_COLOR_AMBIENT)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MAP_ALBEDO)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MAP_METALNESS)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MAP_NORMAL)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MAP_ROUGHNESS)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MAP_OCCLUSION)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MAP_EMISSION)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MAP_HEIGHT)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MAP_CUBEMAP)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MAP_IRRADIANCE)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MAP_PREFILTER)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MAP_BRDF)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MAP_DIFFUSE)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_LOC_MAP_SPECULAR)) goto error;
+    // Shader uniform data type
+    if (PyModule_AddIntMacro(m, SHADER_UNIFORM_FLOAT)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_UNIFORM_VEC2)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_UNIFORM_VEC3)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_UNIFORM_VEC4)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_UNIFORM_INT)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_UNIFORM_IVEC2)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_UNIFORM_IVEC3)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_UNIFORM_IVEC4)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_UNIFORM_SAMPLER2D)) goto error;
+    // Shader attribute data types
+    if (PyModule_AddIntMacro(m, SHADER_ATTRIB_FLOAT)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_ATTRIB_VEC2)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_ATTRIB_VEC3)) goto error;
+    if (PyModule_AddIntMacro(m, SHADER_ATTRIB_VEC4)) goto error;
+    // Pixel formats
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_UNCOMPRESSED_GRAYSCALE)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_UNCOMPRESSED_GRAY_ALPHA)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_UNCOMPRESSED_R5G6B5)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_UNCOMPRESSED_R8G8B8)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_UNCOMPRESSED_R5G5B5A1)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_UNCOMPRESSED_R4G4B4A4)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_UNCOMPRESSED_R8G8B8A8)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_UNCOMPRESSED_R32)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_UNCOMPRESSED_R32G32B32)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_UNCOMPRESSED_R32G32B32A32)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_UNCOMPRESSED_R16)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_UNCOMPRESSED_R16G16B16)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_UNCOMPRESSED_R16G16B16A16)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_COMPRESSED_DXT1_RGB)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_COMPRESSED_DXT1_RGBA)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_COMPRESSED_DXT3_RGBA)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_COMPRESSED_DXT5_RGBA)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_COMPRESSED_ETC1_RGB)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_COMPRESSED_ETC2_RGB)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_COMPRESSED_ETC2_EAC_RGBA)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_COMPRESSED_PVRT_RGB)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_COMPRESSED_PVRT_RGBA)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_COMPRESSED_ASTC_4x4_RGBA)) goto error;
+    if (PyModule_AddIntMacro(m, PIXELFORMAT_COMPRESSED_ASTC_8x8_RGBA)) goto error;
+    // Texture parameters: filter mode
+    if (PyModule_AddIntMacro(m, TEXTURE_FILTER_POINT)) goto error;
+    if (PyModule_AddIntMacro(m, TEXTURE_FILTER_BILINEAR)) goto error;
+    if (PyModule_AddIntMacro(m, TEXTURE_FILTER_TRILINEAR)) goto error;
+    if (PyModule_AddIntMacro(m, TEXTURE_FILTER_ANISOTROPIC_4X)) goto error;
+    if (PyModule_AddIntMacro(m, TEXTURE_FILTER_ANISOTROPIC_8X)) goto error;
+    if (PyModule_AddIntMacro(m, TEXTURE_FILTER_ANISOTROPIC_16X)) goto error;
+    // Texture parameters: wrap mode
+    if (PyModule_AddIntMacro(m, TEXTURE_WRAP_REPEAT)) goto error;
+    if (PyModule_AddIntMacro(m, TEXTURE_WRAP_CLAMP)) goto error;
+    if (PyModule_AddIntMacro(m, TEXTURE_WRAP_MIRROR_REPEAT)) goto error;
+    if (PyModule_AddIntMacro(m, TEXTURE_WRAP_MIRROR_CLAMP)) goto error;
+    // Cubemap layouts
+    if (PyModule_AddIntMacro(m, CUBEMAP_LAYOUT_AUTO_DETECT)) goto error;
+    if (PyModule_AddIntMacro(m, CUBEMAP_LAYOUT_LINE_VERTICAL)) goto error;
+    if (PyModule_AddIntMacro(m, CUBEMAP_LAYOUT_LINE_HORIZONTAL)) goto error;
+    if (PyModule_AddIntMacro(m, CUBEMAP_LAYOUT_CROSS_THREE_BY_FOUR)) goto error;
+    if (PyModule_AddIntMacro(m, CUBEMAP_LAYOUT_CROSS_FOUR_BY_THREE)) goto error;
+    if (PyModule_AddIntMacro(m, CUBEMAP_LAYOUT_PANORAMA)) goto error;
+    // Font type, defines generation method
+    if (PyModule_AddIntMacro(m, FONT_DEFAULT)) goto error;
+    if (PyModule_AddIntMacro(m, FONT_BITMAP)) goto error;
+    if (PyModule_AddIntMacro(m, FONT_SDF)) goto error;
+    // Color blending modes (pre-defined)
+    if (PyModule_AddIntMacro(m, BLEND_ALPHA)) goto error;
+    if (PyModule_AddIntMacro(m, BLEND_ADDITIVE)) goto error;
+    if (PyModule_AddIntMacro(m, BLEND_MULTIPLIED)) goto error;
+    if (PyModule_AddIntMacro(m, BLEND_ADD_COLORS)) goto error;
+    if (PyModule_AddIntMacro(m, BLEND_SUBTRACT_COLORS)) goto error;
+    if (PyModule_AddIntMacro(m, BLEND_ALPHA_PREMULTIPLY)) goto error;
+    if (PyModule_AddIntMacro(m, BLEND_CUSTOM)) goto error;
+    if (PyModule_AddIntMacro(m, BLEND_CUSTOM_SEPARATE)) goto error;
+    // Gesture
+    if (PyModule_AddIntMacro(m, GESTURE_NONE)) goto error;
+    if (PyModule_AddIntMacro(m, GESTURE_TAP)) goto error;
+    if (PyModule_AddIntMacro(m, GESTURE_DOUBLETAP)) goto error;
+    if (PyModule_AddIntMacro(m, GESTURE_HOLD)) goto error;
+    if (PyModule_AddIntMacro(m, GESTURE_DRAG)) goto error;
+    if (PyModule_AddIntMacro(m, GESTURE_SWIPE_RIGHT)) goto error;
+    if (PyModule_AddIntMacro(m, GESTURE_SWIPE_LEFT)) goto error;
+    if (PyModule_AddIntMacro(m, GESTURE_SWIPE_UP)) goto error;
+    if (PyModule_AddIntMacro(m, GESTURE_SWIPE_DOWN)) goto error;
+    if (PyModule_AddIntMacro(m, GESTURE_PINCH_IN)) goto error;
+    if (PyModule_AddIntMacro(m, GESTURE_PINCH_OUT)) goto error;
+    // Camera system modes
+    if (PyModule_AddIntMacro(m, CAMERA_CUSTOM)) goto error;
+    if (PyModule_AddIntMacro(m, CAMERA_FREE)) goto error;
+    if (PyModule_AddIntMacro(m, CAMERA_ORBITAL)) goto error;
+    if (PyModule_AddIntMacro(m, CAMERA_FIRST_PERSON)) goto error;
+    if (PyModule_AddIntMacro(m, CAMERA_THIRD_PERSON)) goto error;
+    // Camera projection
+    if (PyModule_AddIntMacro(m, CAMERA_PERSPECTIVE)) goto error;
+    if (PyModule_AddIntMacro(m, CAMERA_ORTHOGRAPHIC)) goto error;
+    // N-patch layout
+    if (PyModule_AddIntMacro(m, NPATCH_NINE_PATCH)) goto error;
+    if (PyModule_AddIntMacro(m, NPATCH_THREE_PATCH_VERTICAL)) goto error;
+    if (PyModule_AddIntMacro(m, NPATCH_THREE_PATCH_HORIZONTAL)) goto error;
 
     return 0;
+
 error:
     Py_XDECREF(m);
     return -1;
