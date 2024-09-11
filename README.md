@@ -2,7 +2,7 @@
 
 **ray.py - CPython native bindings for Raylib**
 
-ray.py is a cross-platform bindings for the great graphics library [raylib](https://www.raylib.com/) 4.0+ with performance in-mind as it's build using the native Python/C API and statically links `libraylib` so you don't miss any frame!
+ray.py is a cross-platform bindings for the great graphics library [Raylib](https://www.raylib.com/) 5.0+ with performance in-mind as it was built using the native Python/C API and statically links `libraylib` so you don't miss any frame!
 
 Check out [examples](https://github.com/faresahmedb/ray.py/blob/main/examples) converted from [raylib/examples](https://github.com/raysan5/raylib/blob/master/examples)
 
@@ -14,9 +14,15 @@ Check out [examples](https://github.com/faresahmedb/ray.py/blob/main/examples) c
 
 ---
 
+## Features
+
+- Uses the [Vectorcall](https://peps.python.org/pep-0590/) fast calling protocol
+- Correct Python annotations/type hints
+- Docstrings for all definitions, converted from Raylib's header file
+
 ## Getting Started
 
-ray.py uses Python3 C API so you would need Python 3.0+ installed on your system, If you don't have it install it using your system's package manager or follow the [instructions](https://www.python.org/download) provided in the python website.
+ray.py uses Python3.7+ C API so you would need Python 3.7+ installed on your system, If you don't have it, install it using your system's package manager or follow the [instructions](https://www.python.org/download) provided on Python's website.
 
 ### Installing
 
@@ -66,11 +72,9 @@ This will download the latest version of [raysan5/raylib](https://github.com/ray
 
 If all goes okay you should have two new files in `dist` one of them is `ray.py-X.Y.X.tar.gz` (sdist) and the other is `ray.py-X.Y.Z-PLATFORM` (wheel)
 
-## How does this differs from other bindings?
+## Rationale
 
-This bindings is 100% native written in C and statically linked with `libraylib` so the performance is very close to other popular python graphics libraries like pygame.
-
-The motivation behinde this library was that other raylib bindings were very slow as they were all written in python using `ctypes` or tools like `cffi` which tends to slow down C calls so much so I decided to just write it all in C and see how it goes.
+Other Raylib bindings were slower than the popular graphics libraries in Python like pygame as they were written using `ctypes` or tools like `cffi` which leaves a lot of room for performance so I decided to write it all in C and see how it goes.
 
 ## License
 

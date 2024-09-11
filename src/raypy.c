@@ -25,6 +25,25 @@ extern "C" {
         return NULL;                                                                          \
     }
 
+/* Utility Functions */
+
+PyObject *
+RayPyErr_ArgsNumberError(int n, Py_ssize_t nargs)
+{
+    return PyErr_Format(PyExc_TypeError,
+        "function takes exactly %zd arguments (%d given)",
+        n, nargs);
+}
+
+PyObject *
+RayPyErr_ArgTypeError(Py_ssize_t i, PyTypeObject *type, PyObject *const *args)
+{
+    return PyErr_Format(PyExc_TypeError,
+        "argument %d must be %s, not %s",
+        i+1, type->tp_name, Py_TYPE(args[i])->tp_name);
+}
+
+
 /* Vector2 */
 
 typedef struct {
@@ -584,12 +603,70 @@ static PyTypeObject RayPy_Texture_Type = {
 };
 
 static PyObject *
+RayPy_LoadTexture(PyObject *Py_UNUSED(self), PyObject *args, PyObject *keywds)
+{
+    const char *fileName;
+    RayPy_TextureObject *ret;
+    if (!PyArg_ParseTuple(args, "s", &fileName))
+        return NULL;
+    Texture texture = LoadTexture(fileName);
+    ret = PyObject_New(RayPy_TextureObject, &RayPy_Texture_Type);
+    ret->t = texture;
+    return (PyObject *)ret;
+}
+
+static PyObject *
+RayPy_DrawTexture(PyObject *self, PyObject *const *args, Py_ssize_t nargs)
+{
+    RayPy_TextureObject *texture;
+    int posX, posY;
+    RayPy_ColorObject *tint;
+    if (nargs != 4) {
+        RayPyErr_ArgsNumberError(4, nargs);
+        return NULL;
+    }
+    if (!PyType_IsSubtype(Py_TYPE(args[0]), &RayPy_Texture_Type)) {
+        RayPyErr_ArgTypeError(0, &RayPy_Texture_Type, args);
+        return NULL;
+    }
+    texture = (RayPy_TextureObject *)args[0];
+    posX = PyLong_AsLong(args[1]);
+    if (PyErr_Occurred()) {
+        PyErr_Clear();
+        RayPyErr_ArgTypeError(1, &RayPy_Texture_Type, args);
+        return NULL;
+    }
+    posY = PyLong_AsLong(args[2]);
+    if (PyErr_Occurred()) {
+        PyErr_Clear();
+        RayPyErr_ArgTypeError(2, &RayPy_Texture_Type, args);
+        return NULL;
+    }
+    if (!PyType_IsSubtype(Py_TYPE(args[3]), &RayPy_Color_Type)) {
+        RayPyErr_ArgTypeError(3, &RayPy_Texture_Type, args);
+        return NULL;
+    }
+    tint = (RayPy_ColorObject *)args[3];
+    DrawTexture(texture->t, posX, posY, RayPy_Color_AsColor(tint));
+    Py_RETURN_NONE;
+}
+
+static PyObject *
+RayPy_UnloadTexture(PyObject *Py_UNUSED(self), PyObject *args, PyObject *keywds)
+{
+    RayPy_TextureObject *texture;
+    if (!PyArg_ParseTuple(args, "O!", &RayPy_Texture_Type, &texture))
+        return NULL;
+    UnloadTexture(texture->t);
+    Py_RETURN_NONE;
+}
+
+static PyObject *
 RayPy_InitWindow(PyObject *Py_UNUSED(self), PyObject *args, PyObject *keywds)
 {
     int width, height;
     const char *title;
-    static char *kwlist[] = {"width", "height", "title", NULL};
-    if (!PyArg_ParseTupleAndKeywords(args, keywds, "iis", kwlist, &width, &height, &title))
+    if (!PyArg_ParseTuple(args, "iis", &width, &height, &title))
         return NULL;
     InitWindow(width, height, title);
     Py_RETURN_NONE;
@@ -1334,7 +1411,12 @@ RayPy_DrawText(PyObject *Py_UNUSED(self), PyObject *args, PyObject *keywds)
 PyDoc_STRVAR(draw_text_doc, "Draw text (using default font)");
 
 static PyMethodDef raypymethods[] = {
-    {"init_window", (PyCFunction)(void (*)(void))RayPy_InitWindow, METH_VARARGS | METH_KEYWORDS, init_window_doc},
+    {"unload_texture", (PyCFunction)RayPy_UnloadTexture, METH_VARARGS, set_window_position_doc},
+    {"load_texture", (PyCFunction)RayPy_LoadTexture, METH_VARARGS, set_window_position_doc},
+    {"draw_texture", (PyCFunction)RayPy_DrawTexture, METH_FASTCALL, set_window_position_doc},
+
+    {"init_window", (PyCFunction)RayPy_InitWindow, METH_VARARGS, init_window_doc},
+    // {"init_window", (PyCFunction)(void (*)(void))RayPy_InitWindow, METH_VARARGS, init_window_doc},
     {"window_should_close", (PyCFunction)RayPy_WindowShouldClose, METH_NOARGS, window_should_close_doc},
     {"close_window", (PyCFunction)RayPy_CloseWindow, METH_NOARGS, close_window_doc},
     {"is_window_ready", (PyCFunction)RayPy_IsWindowReady, METH_NOARGS, is_window_ready_doc},
@@ -1394,7 +1476,7 @@ static PyMethodDef raypymethods[] = {
     {"take_screenshot", (PyCFunction)RayPy_TakeScreenshot, METH_O, take_screenshot_doc},
     {"set_config_flags", (PyCFunction)RayPy_SetConfigFlags, METH_O, set_config_flags_doc},
     {"trace_log", (PyCFunction)RayPy_TraceLog, METH_VARARGS, trace_log_doc},
-    {"set_trace_log_level_doc", (PyCFunction)RayPy_SetTraceLogLevel, METH_O, set_trace_log_level_doc},
+    {"set_trace_log_level", (PyCFunction)RayPy_SetTraceLogLevel, METH_O, set_trace_log_level_doc},
     {"open_url", (PyCFunction)RayPy_OpenURL, METH_O, open_url_doc},
     {"is_key_pressed", (PyCFunction)RayPy_IsKeyPressed, METH_O, is_key_pressed_doc},
     {"is_key_down", (PyCFunction)RayPy_IsKeyDown, METH_O, is_key_down_doc},
